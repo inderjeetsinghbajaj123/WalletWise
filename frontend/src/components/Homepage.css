@@ -120,16 +120,24 @@ button {
   transition: var(--transition-elegant);
 }
 
-.ww-nav-links .ww-btn.ww-btn-primary {
+/* Primary CTA: Get Started */
+.ww-nav-links .ww-btn-primary {
   color: #ffffff;
   font-weight: 800;
 }
 
+/* Hover state with proper contrast */
+.ww-nav-links .ww-btn-primary:hover {
+  background: #ffffff;
+  color: var(--text-main);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  transform: translateY(-2px);
+}
 .ww-nav-links button:hover {
   color: var(--brand-primary);
   background: rgba(99, 102, 241, 0.05);
-  transform: translateY(-2px);
 }
+
 
 .ww-menu-toggle {
   display: none;
