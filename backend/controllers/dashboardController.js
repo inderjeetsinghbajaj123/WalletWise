@@ -12,10 +12,19 @@ const getDashboardSummary = async (req, res) => {
         const startOfPrevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const endOfPrevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0, 23, 59, 59, 999);
 
+        const currentMonth = currentDate.toISOString().slice(0, 7);
+
         // Get all data in parallel
         const [transactions, budget, savingsGoals, user] = await Promise.all([
-            Transaction.find({ userId }),
-            Budget.findOne({ userId, isActive: true }),
+            Transaction.find({
+                userId,
+                date: { $gte: startOfPrevMonth } // Optimization: Only fetch needed transactions
+            }),
+            Budget.findOne({
+                userId,
+                month: currentMonth, // Fix: Filter by current month
+                isActive: true
+            }),
             SavingsGoal.find({ userId, isActive: true }),
             User.findById(userId).select('-passwordHash -refreshTokenHash')
         ]);
