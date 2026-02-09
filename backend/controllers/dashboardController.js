@@ -12,19 +12,10 @@ const getDashboardSummary = async (req, res) => {
         const startOfPrevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const endOfPrevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0, 23, 59, 59, 999);
 
-        const currentMonth = currentDate.toISOString().slice(0, 7);
-
         // Get all data in parallel
         const [transactions, budget, savingsGoals, user] = await Promise.all([
-            Transaction.find({
-                userId,
-                date: { $gte: startOfPrevMonth } // Optimization: Only fetch needed transactions
-            }),
-            Budget.findOne({
-                userId,
-                month: currentMonth, // Fix: Filter by current month
-                isActive: true
-            }),
+            Transaction.find({ userId }),
+            Budget.findOne({ userId, isActive: true }),
             SavingsGoal.find({ userId, isActive: true }),
             User.findById(userId).select('-passwordHash -refreshTokenHash')
         ]);
@@ -71,8 +62,8 @@ const getDashboardSummary = async (req, res) => {
             Math.min((monthlyExpenses / monthlyBudget) * 100, 100) : 0;
         const budgetLeft = Math.max(0, monthlyBudget - monthlyExpenses);
 
-        // Calculate total balance
-        const totalBalance = monthlyIncome - monthlyExpenses + totalSavings;
+        // Calculate total balance - use User.walletBalance as the source of truth
+        const totalBalance = user.walletBalance;
 
         // Category spending (current month)
         const categoryMap = new Map();
