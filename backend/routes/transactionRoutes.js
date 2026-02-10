@@ -13,6 +13,7 @@ router.post('/', protect, validate(transactionSchema), transactionController.add
 // Get all transactions
 router.get('/', protect, transactionController.getAllTransactions);
 
+<<<<<<< Updated upstream
 // Update transaction
 router.put('/:id', protect, transactionController.updateTransaction);
 
@@ -20,3 +21,6 @@ router.put('/:id', protect, transactionController.updateTransaction);
 router.delete('/:id', protect, transactionController.deleteTransaction);
 
 module.exports = router;
+=======
+module.exports = router;
+>>>>>>> Stashed changes
