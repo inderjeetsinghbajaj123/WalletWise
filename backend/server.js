@@ -132,6 +132,7 @@ const savingGoalRoutes = require('./routes/savingGoalRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const insightsRoutes = require('./routes/insightsRoutes');
 
 // ==================== ROUTE MOUNTING ====================
 app.use('/api/auth', authRoutes);
@@ -141,6 +142,7 @@ app.use('/api/savings-goals', savingGoalRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/insights', insightsRoutes);
 
 // ==================== HEALTH CHECK ====================
 
@@ -177,6 +179,13 @@ app.get('/api/health', (req, res) => {
             },
             dashboard: {
                 summary: 'GET /api/dashboard/summary'
+            },
+            insights: {
+                anomalies: 'GET /api/insights/anomalies',
+                subscriptions_alerts: 'GET /api/insights/subscriptions/alerts',
+                seasonal: 'GET /api/insights/seasonal',
+                weekend_weekday: 'GET /api/insights/weekend-weekday',
+                summary: 'GET /api/insights/summary'
             }
         }
     });
@@ -211,6 +220,13 @@ app.get('/', (req, res) => {
             },
             dashboard: {
                 summary: 'GET /api/dashboard/summary (requires token)'
+            },
+            insights: {
+                anomalies: 'GET /api/insights/anomalies (requires token)',
+                subscriptions_alerts: 'GET /api/insights/subscriptions/alerts (requires token)',
+                seasonal: 'GET /api/insights/seasonal (requires token)',
+                weekend_weekday: 'GET /api/insights/weekend-weekday (requires token)',
+                summary: 'GET /api/insights/summary (requires token)'
             },
             utility: {
                 health: 'GET /api/health'
@@ -267,6 +283,13 @@ app.listen(PORT, () => {
 
     console.log(`\n📊 DASHBOARD:`);
     console.log(`  GET  /api/dashboard/summary   - Dashboard data (requires token)`);
+
+    console.log(`\n🧠 INSIGHTS:`);
+    console.log(`  GET  /api/insights/anomalies            - Unusual spending detection (requires token)`);
+    console.log(`  GET  /api/insights/subscriptions/alerts - Renewal + unused subs (requires token)`);
+    console.log(`  GET  /api/insights/seasonal             - Seasonal patterns (requires token)`);
+    console.log(`  GET  /api/insights/weekend-weekday      - Weekend vs weekday (requires token)`);
+    console.log(`  GET  /api/insights/summary              - All insights combined (requires token)`);
 
     console.log(`\n🔧 UTILITY:`);
     console.log(`  GET  /api/health              - Health check`);

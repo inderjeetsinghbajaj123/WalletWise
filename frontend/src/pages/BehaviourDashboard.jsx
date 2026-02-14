@@ -47,6 +47,7 @@ const BehaviourDashboard = () => {
   const [error, setError] = useState('');
   const [summary, setSummary] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [insights, setInsights] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -54,14 +55,16 @@ const BehaviourDashboard = () => {
       setLoading(true);
       setError('');
       try {
-        const [summaryRes, txRes] = await Promise.all([
+        const [summaryRes, txRes, insightsRes] = await Promise.all([
           api.get('/api/dashboard/summary'),
-          api.get('/api/transactions')
+          api.get('/api/transactions'),
+          api.get('/api/insights/summary')
         ]);
 
         if (!isMounted) return;
         setSummary(summaryRes.data || null);
         setTransactions(txRes.data?.transactions || []);
+        setInsights(insightsRes.data || null);
       } catch (err) {
         if (!isMounted) return;
         setError('Unable to load AI analysis data right now.');
@@ -265,6 +268,30 @@ const BehaviourDashboard = () => {
     }
     : null;
 
+  const insightMessages = useMemo(() => {
+    if (!insights?.success) return [];
+    const msgs = [];
+    const an = insights.anomalies || {};
+    (an.weeklySpikes || []).slice(0, 3).forEach((s) => msgs.push(s.message));
+    (an.largeTransactions || []).slice(0, 3).forEach((t) => msgs.push(t.message));
+    const subs = insights.subscriptions || {};
+    (subs.dueSoon || []).slice(0, 3).forEach((d) => msgs.push(d.message));
+    (subs.possiblyUnused || []).slice(0, 3).forEach((u) => msgs.push(u.message));
+    const w = insights.weekendVsWeekday?.overall;
+    if (w && (w.weekendAvg || w.weekdayAvg)) {
+      const bias =
+        w.weekendAvg > w.weekdayAvg
+          ? `weekends (+${formatCurrency(w.weekendAvg - w.weekdayAvg)} per txn)`
+          : w.weekendAvg < w.weekdayAvg
+            ? `weekdays (+${formatCurrency(w.weekdayAvg - w.weekendAvg)} per txn)`
+            : 'both equally';
+      msgs.push(`Spending skews towards ${bias}.`);
+    }
+    const peaks = insights.seasonal?.categoryPeaks || [];
+    peaks.slice(0, 2).forEach((p) => msgs.push(`${p.category} peaked in ${p.peakMonth}.`));
+    return msgs.slice(0, 8);
+  }, [insights]);
+
   if (loading) {
     return (
       <div className="ai-page">
@@ -414,6 +441,35 @@ const BehaviourDashboard = () => {
               </div>
             </div>
           </motion.div>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="ai-card"
+        >
+          <div className="ai-card-header">
+            <div>
+              <p className="ai-eyebrow">Smart feed</p>
+              <h2>AI Insights</h2>
+            </div>
+            <div className="ai-icon-pill ai-icon-indigo">
+              <LucideLightbulb size={18} />
+            </div>
+          </div>
+          <div className="ai-stack">
+            {insightMessages.length === 0 ? (
+              <div className="ai-pattern-card">No insights yet. Add more transactions to unlock analysis.</div>
+            ) : (
+              insightMessages.map((msg, idx) => (
+                <div key={`insight-${idx}`} className="ai-pattern-card">
+                  <p>{msg}</p>
+                </div>
+              ))
+            )}
+          </div>
         </motion.section>
 
         <motion.section
