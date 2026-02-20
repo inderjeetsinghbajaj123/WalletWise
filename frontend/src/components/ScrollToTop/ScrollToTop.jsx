@@ -14,9 +14,6 @@ const ScrollToTop = () => {
             ? target.scrollTop
             : (window.pageYOffset || document.documentElement.scrollTop);
 
-        console.log(`ScrollToTop Event Target: ${target.className || target.nodeName}`);
-        console.log(`ScrollToTop Current Scroll: ${scrolled}px`);
-
         if (scrolled > 100) {
             setIsVisible(true);
         } else {
