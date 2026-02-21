@@ -1,7 +1,30 @@
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transactions');
 const User = require('../models/User');
+const { z } = require('zod');
 const { isValidObjectId } = require('../utils/validation');
+
+const transactionSchema = z.object({
+  type: z.enum(['income', 'expense'], {
+    errorMap: () => ({ message: "Type must be either 'income' or 'expense'" })
+  }),
+  amount: z.preprocess(
+    (val) => (typeof val === 'string' ? Number(val) : val),
+    z.number({ invalid_type_error: "Amount must be a number" })
+     .finite()
+     .positive("Amount must be greater than 0")
+  ),
+  category: z.string().trim().min(1, "Category is required").toLowerCase(),
+  description: z.string().trim().optional().default(''),
+  paymentMethod: z.string().trim().optional().default('cash'),
+  mood: z.string().trim().optional().default('neutral'),
+  date: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : new Date(val)),
+    z.date().optional()
+  ),
+  isRecurring: z.boolean().optional().default(false),
+  recurringInterval: z.enum(['daily', 'weekly', 'monthly']).nullable().optional()
+});
 
 // Helper to handle transaction cleanup
 const withTransaction = async (operation) => {
@@ -24,6 +47,19 @@ const addTransaction = async (req, res) => {
     try {
         const userId = req.userId;
 
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const parsed = transactionSchema.safeParse(req.body);
+
+        if (!parsed.success) {
+            return res.status(400).json({
+                success: false,
+                message: parsed.error.errors[0]?.message || 'Invalid input'
+            });
+        }
+
         const {
             type,
             amount,
@@ -34,48 +70,17 @@ const addTransaction = async (req, res) => {
             date,
             isRecurring,
             recurringInterval
-        } = req.body;
+        } = parsed.data;
 
-        if (!userId) {
-            return res.status(401).json({ success: false, message: 'Unauthorized' });
-        }
-
-        if (!type || amount === undefined || amount === null || !category) {
-            return res.status(400).json({
-                success: false,
-                message: 'Type, amount, and category are required'
-            });
-        }
-
-        const numericAmount = Number(amount);
-
-        if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Amount must be a valid number greater than 0'
-            });
-        }
-
-        if (!['income', 'expense'].includes(type)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Type must be either income or expense'
-            });
-        }
         // ===== Duplicate Detection =====
-
-        // configurable time window (24 hours)
         const duplicateWindow = 24 * 60 * 60 * 1000;
         const sinceDate = new Date(Date.now() - duplicateWindow);
 
-        // find similar transactions
         const possibleDuplicate = await Transaction.findOne({
             userId,
             type,
-            amount: numericAmount,
-            category: typeof category === 'string'
-                ? category.trim().toLowerCase()
-                : category,
+            amount,
+            category,
             date: { $gte: sinceDate }
         });
 
@@ -86,46 +91,63 @@ const addTransaction = async (req, res) => {
                 message: "A similar transaction was recently added. Do you still want to continue?"
             });
         }
-        let nextExecutionDate = null;
 
-if (isRecurring && recurringInterval) {
-    const now = new Date();
+        await withTransaction(async (session) => {
 
-    if (recurringInterval === "daily") now.setDate(now.getDate() + 1);
-    else if (recurringInterval === "weekly") now.setDate(now.getDate() + 7);
-    else if (recurringInterval === "monthly") now.setMonth(now.getMonth() + 1);
+            let nextExecutionDate = null;
 
-    nextExecutionDate = now;
-}
+            if (isRecurring && recurringInterval) {
+                const now = new Date();
 
-const transaction = new Transaction({
-    userId,
-    type,
-    amount: numericAmount,
-    category: typeof category === 'string' ? category.trim().toLowerCase() : category,
-    description: typeof description === 'string' ? description.trim() : description,
-    paymentMethod: paymentMethod || 'cash',
-    mood: mood || 'neutral',
-    ...(date ? { date } : {}),
-    isRecurring: isRecurring || false,
-    recurringInterval: recurringInterval || null,
-    nextExecutionDate
-});
+                if (recurringInterval === "daily") now.setDate(now.getDate() + 1);
+                else if (recurringInterval === "weekly") now.setDate(now.getDate() + 7);
+                else if (recurringInterval === "monthly") now.setMonth(now.getMonth() + 1);
 
-await transaction.save();
+                nextExecutionDate = now;
+            }
 
-// update wallet
-const balanceChange = type === 'income' ? numericAmount : -numericAmount;
+            const transaction = new Transaction({
+                userId,
+                type,
+                amount,
+                category,
+                description,
+                paymentMethod,
+                mood,
+                ...(date ? { date } : {}),
+                isRecurring,
+                recurringInterval,
+                nextExecutionDate
+            });
 
-await User.findByIdAndUpdate(userId, {
-    $inc: { walletBalance: balanceChange }
-});
+            await transaction.save({ session });
 
-res.status(201).json({
-    success: true,
-    message: 'Transaction added successfully',
-    transaction
-});
+            const balanceChange = type === 'income' ? amount : -amount;
+
+            await User.findByIdAndUpdate(
+                userId,
+                { $inc: { walletBalance: balanceChange } },
+                { session }
+            );
+
+            return res.status(201).json({
+                success: true,
+                message: 'Transaction added successfully',
+                transaction: {
+                    id: transaction._id,
+                    type: transaction.type,
+                    amount: transaction.amount,
+                    category: transaction.category,
+                    description: transaction.description,
+                    date: transaction.date,
+                    paymentMethod: transaction.paymentMethod,
+                    mood: transaction.mood,
+                    isRecurring: transaction.isRecurring,
+                    recurringInterval: transaction.recurringInterval
+                }
+            });
+
+        });
 
     } catch (error) {
         console.error('Add transaction error:', error);
@@ -156,8 +178,6 @@ res.status(201).json({
         }
     }
 };
-
-
 
 // Get all transactions with pagination and filtering
 const getAllTransactions = async (req, res) => {
@@ -295,18 +315,19 @@ const updateTransaction = async (req, res) => {
         await withTransaction(async (session) => {
             const oldTransaction = await Transaction.findOne({ _id: id, userId }).session(session);
             if (!oldTransaction) {
-                // Throwing error inside transaction to abort
                 const err = new Error('Transaction not found');
                 err.status = 404;
                 throw err;
             }
 
-            if (amount !== undefined && Number(amount) <= 0) {
-                const err = new Error('Amount must be greater than 0');
+            const parsed = transactionSchema.partial().safeParse(req.body);
+            if (!parsed.success) {
+                const err = new Error(parsed.error.errors[0]?.message || 'Invalid input');
                 err.status = 400;
                 throw err;
             }
 
+            const updateData = parsed.data;
             let balanceChange = 0;
 
             // Revert old effect
@@ -316,8 +337,8 @@ const updateTransaction = async (req, res) => {
                 balanceChange += oldTransaction.amount;
             }
 
-            const newType = type || oldTransaction.type;
-            const newAmount = amount !== undefined ? Number(amount) : oldTransaction.amount;
+            const newType = updateData.type || oldTransaction.type;
+            const newAmount = updateData.amount !== undefined ? updateData.amount : oldTransaction.amount;
 
             // Apply new effect
             if (newType === 'income') {
@@ -326,13 +347,12 @@ const updateTransaction = async (req, res) => {
                 balanceChange -= newAmount;
             }
 
-            oldTransaction.type = newType;
-            oldTransaction.amount = newAmount;
-            oldTransaction.category = category || oldTransaction.category;
-            oldTransaction.description = description !== undefined ? description : oldTransaction.description;
-            oldTransaction.paymentMethod = paymentMethod || oldTransaction.paymentMethod;
-            oldTransaction.mood = mood || oldTransaction.mood;
-            if (date) oldTransaction.date = date;
+            // Apply updates
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] !== undefined) {
+                    oldTransaction[key] = updateData[key];
+                }
+            });
 
             await oldTransaction.save({ session });
 

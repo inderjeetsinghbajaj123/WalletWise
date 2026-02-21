@@ -7,7 +7,7 @@ const api = axios.create({
   withCredentials: true
 });
 
-const refreshClient = axios.create({
+export const refreshClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true
 });
@@ -19,7 +19,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true;
       try {
-        await refreshClient.post('/api/auth/refresh');
+        await refreshClient.post('/api/auth/refresh', {});
         return api(originalRequest);
       } catch (refreshError) {
         return Promise.reject(refreshError);

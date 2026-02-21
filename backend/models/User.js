@@ -60,6 +60,15 @@ const userSchema = new mongoose.Schema({
   passwordHash: {
     type: String
   },
+  passwordResetOtpHash: {
+    type: String
+  },
+  passwordResetOtpExpires: {
+    type: Date
+  },
+  passwordResetOtpSentAt: {
+    type: Date
+  },
   provider: {
     type: String,
     enum: ['local', 'google', 'both'],

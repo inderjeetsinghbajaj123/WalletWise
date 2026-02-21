@@ -19,6 +19,8 @@ import Reports from './pages/Reports';
 import SubscriptionDashboard from './pages/SubscriptionDashboard';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
+import DecisionHelper from './pages/DecisionHelper';
+import ScrollToTop from './components/ScrollToTop/ScrollToTop';
 
 // Import authentication components
 import Login from './components/Login';
@@ -29,6 +31,8 @@ import VerifyResetOtp from './components/VerifyResetOtp';
 import ResetPassword from './components/ResetPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
+
+
 
 function App() {
   return (
@@ -61,6 +65,7 @@ function App() {
                 },
               }}
             />
+            <ScrollToTop />
 
             <Routes>
               {/* Public Routes */}
@@ -119,6 +124,8 @@ function App() {
                   </PublicRoute>
                 }
               />
+
+
 
               {/* Protected Routes - Only accessible when logged in */}
               <Route
@@ -226,6 +233,15 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Profile />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/decision-helper"
+                element={
+                  <ProtectedRoute>
+                    <DecisionHelper />
                   </ProtectedRoute>
                 }
               />

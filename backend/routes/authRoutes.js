@@ -34,9 +34,8 @@ router.post('/register', authLimiter, validate(userRegisterSchema), authControll
 router.post('/login', authLimiter, validate(userLoginSchema), authController.login);
 router.post('/verify-email', authLimiter, validate(verifyEmailSchema), authController.verifyEmail);
 router.post('/resend-otp', authLimiter, validate(resendOtpSchema), authController.resendEmailOtp);
-router.post('/forgot-password', forgotPasswordLimiter, validate(forgotPasswordRequestSchema), authController.requestPasswordReset);
-router.post('/forgot-password/verify', forgotPasswordLimiter, validate(forgotPasswordVerifySchema), authController.verifyPasswordResetOtp);
-router.post('/forgot-password/reset', forgotPasswordLimiter, validate(resetPasswordSchema), authController.resetPassword);
+router.post('/forgot-password', authLimiter, authController.forgotPassword);
+router.post('/reset-password', authLimiter, authController.resetPassword);
 router.post('/logout', authController.logout);
 router.post('/refresh', authController.refresh);
 router.get('/me', protect, authController.me);

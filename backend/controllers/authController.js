@@ -13,6 +13,17 @@ const {
 const cloudinary = require('../config/cloudinary');
 const getDataUri = require('../utils/dataUri');
 
+
+const forgotPasswordSchema = z.object({
+  email: z.string().trim().email('Invalid email')
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().trim().email('Invalid email'),
+  otp: z.string().trim().min(6, 'OTP must be 6 digits'),
+  newPassword: z.string().min(6, 'Password must be at least 6 characters')
+});
+
 const registerSchema = z.object({
   studentId: z.string().trim().min(1, 'Student ID is required'),
   fullName: z.string().trim().min(1, 'Full name is required'),
@@ -657,6 +668,64 @@ const googleCallback = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  try {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        success: false,
+        message: parsed.error.errors[0]?.message || 'Invalid email'
+      });
+    }
+
+    const { email } = parsed.data;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const otp = generateOtp();
+    user.passwordResetOtpHash = hashOtp(otp);
+    user.passwordResetOtpExpires = otpExpiresAt(10); // 10 minutes
+    user.passwordResetOtpSentAt = new Date();
+    await user.save();
+
+    const subject = 'Reset your WalletWise password 🔐';
+    const text = `Hello ${user.fullName || 'User'},
+
+Your OTP to reset your password is:
+
+👉 ${otp}
+
+This OTP is valid for 10 minutes.
+Please do not share it with anyone.
+
+— Team WalletWise`;
+
+    const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+      <h2>Reset your Password</h2>
+      <p>Hello ${user.fullName || 'User'},</p>
+      <p>Your OTP to reset your password is:</p>
+      <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">${otp}</p>
+      <p>This OTP is valid for 10 minutes.</p>
+      <p>If you didn't request this, please ignore this email.</p>
+      <p>— Team WalletWise</p>
+    </div>
+  `;
+
+    await sendEmail({ to: user.email, subject, text, html });
+
+    return res.json({ success: true, message: 'OTP sent to your email', next: 'verify_otp' });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ success: false, message: 'Server error with forgot password' });
+  }
+};
+
+
 module.exports = {
   register,
   login,
@@ -667,7 +736,6 @@ module.exports = {
   googleCallback,
   verifyEmail,
   resendEmailOtp,
-  requestPasswordReset,
-  verifyPasswordResetOtp,
+  forgotPassword,
   resetPassword
 };

@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { FaFilter, FaSearch } from 'react-icons/fa';
 import Pagination from '../components/Pagination';
+import EmptyState from '../components/EmptyState';
+import { ShoppingBag, SearchX } from 'lucide-react';
 import './Transactions.css';
 
 const categoryLabelMap = {
@@ -85,7 +87,7 @@ const Transactions = () => {
           params.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
         } else {
 
-          if (activeQuickFilter === 'food') params.search = 'food'; 
+          if (activeQuickFilter === 'food') params.search = 'food';
           if (activeQuickFilter === 'transport') params.search = 'transport';
           if (activeQuickFilter === 'fun') params.search = 'fun';
         }
@@ -113,7 +115,7 @@ const Transactions = () => {
       } else {
         setError('Could not connect to server.');
       }
-      setTransactions([]); 
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
@@ -139,6 +141,7 @@ const Transactions = () => {
     });
 
 
+  const buildExportRows = () => {
     return transactions.map((tx) => ({
       date: formatDate(tx.date),
       category: tx.category || 'others',
@@ -306,10 +309,15 @@ const Transactions = () => {
 
       <section className="transactions-table">
         {transactions.length === 0 ? (
-          <div className="empty-state">
-            <h3>No transactions match these filters.</h3>
-            <p>Try a different search or date range.</p>
-          </div>
+          <EmptyState
+            icon={searchTerm || startDate || endDate || activeQuickFilter !== 'all' ? SearchX : ShoppingBag}
+            title={searchTerm || startDate || endDate || activeQuickFilter !== 'all' ? "No matching transactions" : "No transactions yet"}
+            description={searchTerm || startDate || endDate || activeQuickFilter !== 'all'
+              ? "We couldn't find any transactions for your current filters. Try resetting them or searching for something else."
+              : "You haven't recorded any spending moments yet this semester. Start tracking to see your financial story unfold!"}
+            actionLabel={searchTerm || startDate || endDate || activeQuickFilter !== 'all' ? null : "Add Your First Transaction"}
+            onAction={() => navigate('/add-expense')}
+          />
         ) : (
           <>
             <table>

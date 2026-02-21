@@ -14,8 +14,8 @@ import {
   FaHandHoldingUsd, FaBullseye, FaChartBar, FaExclamationTriangle,
   FaBrain, FaArrowUp, FaArrowDown, FaCalendarAlt,
   FaSync, FaExclamationCircle, FaHome, FaExchangeAlt,
-  FaCog, FaChartPie, FaCreditCard, FaFileAlt, FaBell,
-  FaFilter, FaSearch
+  FaCog, FaChartPie, FaEdit, FaTrash, FaCalendarCheck, FaBell,
+  FaSun, FaMoon, FaMagic, FaCreditCard, FaFileAlt, FaFilter, FaSearch
 } from 'react-icons/fa';
 import { Line, Pie, Bar } from 'react-chartjs-2';
 import { toast } from 'react-hot-toast';
@@ -88,6 +88,18 @@ const Dashboard = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Scroll Lock for Mobile Menu
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileMenuOpen]);
 
   // Modal states
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
@@ -170,7 +182,7 @@ const Dashboard = () => {
     setRefreshing(true);
     try {
       console.log('???? Fetching dashboard data...');
-      
+
       const dashboardRes = await api.get('/api/dashboard/summary');
       const dashboardData = dashboardRes.data;
 
@@ -464,6 +476,14 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="mobile-overlay"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        ></div>
+      )}
       {/* Clean, Focused Navbar */}
       <header className="dashboard-header">
         {/* Left: Logo */}
@@ -479,15 +499,19 @@ const Dashboard = () => {
           <button
             className="mobile-menu-toggle"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            aria-label="Toggle menu"
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-nav-menu"
           >
             <span className={`hamburger ${isMobileMenuOpen ? 'open' : ''}`}></span>
             <span className={`hamburger ${isMobileMenuOpen ? 'open' : ''}`}></span>
             <span className={`hamburger ${isMobileMenuOpen ? 'open' : ''}`}></span>
           </button>
 
-          <ul className={`nav-menu ${isMobileMenuOpen ? 'active' : ''}`}>
+          <ul
+            id="mobile-nav-menu"
+            className={`nav-menu ${isMobileMenuOpen ? 'active' : ''}`}
+          >
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
@@ -616,6 +640,17 @@ const Dashboard = () => {
               >
                 <FaBrain className="ai-icon" />
                 <span>AI Insights</span>
+              </button>
+
+              <button
+                className="ai-insights-btn"
+                onClick={() => navigate('/decision-helper')}
+                title="AI-powered purchase advisor"
+                aria-label="Decision Helper"
+                style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', color: 'white', border: 'none' }}
+              >
+                <FaMagic className="ai-icon" />
+                <span>Decision Helper</span>
               </button>
             </div>
           </div>
