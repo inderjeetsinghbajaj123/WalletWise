@@ -34,6 +34,34 @@
 }
 
 /* ==========================================================================
+   1b. DARK THEME OVERRIDES
+   ========================================================================== */
+.dark {
+  --bg-app: #0b0f1a;
+  --bg-card: #111827;
+  --bg-card-hover: #1a2235;
+  --bg-card-alt: #151e2e;
+  --text-main: #f1f5f9;
+  --text-muted: #8b9ab5;
+  --border-subtle: #1e2d45;
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --shadow-soft: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+
+  /* Action icon backgrounds — darker tints */
+  --icon-blue-bg: rgba(37, 99, 235, 0.15);
+  --icon-green-bg: rgba(16, 185, 129, 0.15);
+  --icon-red-bg: rgba(239, 68, 68, 0.15);
+  --icon-purple-bg: rgba(139, 92, 246, 0.15);
+  --icon-orange-bg: rgba(234, 88, 12, 0.15);
+  --icon-pink-bg: rgba(219, 39, 119, 0.15);
+  --icon-teal-bg: rgba(13, 148, 136, 0.15);
+
+  /* Progress bar track */
+  --progress-track: #1e2d45;
+}
+
+/* ==========================================================================
    2. GLOBAL LAYOUT
    ========================================================================== */
 .dashboard {
@@ -1200,4 +1228,369 @@ textarea:focus {
   font-size: 0.85rem;
   padding: 0.4rem 0.8rem;
   border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   13. DARK MODE COMPONENT STYLES
+   ========================================================================== */
+
+/* ── Navbar ── */
+.dark .dashboard-header {
+  background: rgba(11, 15, 26, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04), 0 4px 20px rgba(0,0,0,0.4);
+}
+
+.dark .nav-link:hover {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+}
+
+.dark .nav-link.active {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.dark .user-profile-trigger {
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.dark .user-profile-trigger:hover {
+  background: var(--bg-card-hover, #1a2235);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.dark .hamburger {
+  background: var(--text-muted);
+}
+
+/* ── Dropdown ── */
+.dark .user-dropdown-menu {
+  background: #131d2e;
+  border-color: var(--border-subtle);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+.dark .user-dropdown-header {
+  background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(14,165,233,0.08));
+  border-bottom-color: var(--border-subtle);
+}
+
+.dark .dropdown-user-name {
+  color: var(--text-main);
+}
+
+.dark .dropdown-item {
+  color: var(--text-main);
+}
+
+.dark .dropdown-item:hover {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+}
+
+.dark .dropdown-item.logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.dark .dropdown-divider {
+  background: var(--border-subtle);
+}
+
+/* ── Dashboard greeting area ── */
+.dark .greeting-text {
+  color: var(--text-main);
+}
+
+.dark .current-date {
+  color: var(--text-muted);
+}
+
+/* ── Refresh button ── */
+.dark .refresh-btn {
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.dark .refresh-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #818cf8;
+}
+
+/* ── Stat cards ── */
+.dark .stat-card {
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.dark .stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  pointer-events: none;
+}
+
+.dark .stat-card:hover {
+  background: #141e30;
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.15);
+}
+
+.dark .stat-content h3 {
+  color: var(--text-muted);
+}
+
+.dark .stat-value {
+  color: var(--text-main);
+}
+
+.dark .stat-trend,
+.dark .progress-text {
+  color: var(--text-muted);
+}
+
+.dark .progress-bar {
+  background: var(--progress-track, #1e2d45);
+}
+
+/* ── Stat icons dark ── */
+.dark .stat-icon.blue { background: var(--icon-blue-bg); color: #60a5fa; }
+.dark .stat-icon.red { background: var(--icon-red-bg); color: #f87171; }
+.dark .stat-icon.green { background: var(--icon-green-bg); color: #34d399; }
+.dark .stat-icon.purple { background: var(--icon-purple-bg); color: #c084fc; }
+
+/* ── Quick actions section ── */
+.dark .section-title {
+  color: var(--text-main);
+}
+
+.dark .action-card {
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.03);
+}
+
+.dark .action-card::before {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+}
+
+.dark .action-card:hover {
+  background: #141e30;
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.2);
+}
+
+.dark .action-card h3 {
+  color: var(--text-main);
+}
+
+.dark .action-card p {
+  color: var(--text-muted);
+}
+
+.dark .action-card:hover .action-icon {
+  background: #6366f1;
+  color: white;
+}
+
+/* ── Action icon dark backgrounds ── */
+.dark .action-icon.blue { background: var(--icon-blue-bg); color: #60a5fa; }
+.dark .action-icon.green { background: var(--icon-green-bg); color: #34d399; }
+.dark .action-icon.orange { background: var(--icon-orange-bg); color: #fb923c; }
+.dark .action-icon.purple { background: var(--icon-purple-bg); color: #c084fc; }
+.dark .action-icon.pink { background: var(--icon-pink-bg); color: #f472b6; }
+.dark .action-icon.teal { background: var(--icon-teal-bg); color: #2dd4bf; }
+
+/* ── Charts ── */
+.dark .chart-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+.dark .chart-header h3 {
+  color: var(--text-main);
+}
+
+.dark .chart-subtitle {
+  color: var(--text-muted);
+}
+
+.dark .chart-empty-state {
+  color: var(--text-muted);
+}
+
+.dark .empty-chart-icon {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+/* ── Transactions ── */
+.dark .recent-transactions {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+.dark .section-header h3 {
+  color: var(--text-main);
+}
+
+.dark .section-subtitle {
+  color: var(--text-muted);
+}
+
+.dark .view-all-btn {
+  background: transparent;
+  border-color: var(--border-subtle);
+  color: #818cf8;
+}
+
+.dark .view-all-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.dark .transaction-card {
+  background: #0f1826;
+  border-color: var(--border-subtle);
+}
+
+.dark .transaction-card:hover {
+  background: #141e30;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.dark .transaction-details h4 {
+  color: var(--text-main);
+}
+
+.dark .transaction-category,
+.dark .transaction-date {
+  color: var(--text-muted);
+}
+
+.dark .icon-bg.expense { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+.dark .icon-bg.income { background: rgba(16, 185, 129, 0.12); color: #34d399; }
+
+/* ── Savings goals ── */
+.dark .savings-summary {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+.dark .savings-summary h3 {
+  color: var(--text-main);
+}
+
+.dark .goal-card {
+  background: #0f1826;
+  border-color: var(--border-subtle);
+}
+
+.dark .goal-card:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  background: #141e30;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.3);
+}
+
+.dark .goal-header h4 {
+  color: var(--text-main);
+}
+
+.dark .goal-date {
+  color: var(--text-muted);
+}
+
+.dark .goal-category {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+}
+
+/* ── Empty states ── */
+.dark .empty-state {
+  background: rgba(99, 102, 241, 0.04);
+  border-color: rgba(99, 102, 241, 0.15);
+}
+
+.dark .empty-state p {
+  color: var(--text-muted);
+}
+
+/* ── Buttons ── */
+.dark .btn-secondary {
+  background: transparent;
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.dark .btn-secondary:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.35);
+  color: #818cf8;
+}
+
+/* ── Mobile nav ── */
+.dark .nav-menu {
+  background: #0f1826;
+  border-top-color: var(--border-subtle);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+
+/* ── Theme toggle ── */
+.dark .theme-toggle-btn {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.25);
+  color: #818cf8;
+}
+
+.dark .theme-toggle-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+/* ── Scrollbar ── */
+.dark ::-webkit-scrollbar-track {
+  background: #111827;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #1e2d45;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6366f1;
+}
+
+/* ── Loading / Updating ── */
+.dark .quick-stats.loading::after {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+}
+
+/* ── Dashboard loading screen ── */
+.dark .dashboard-loading p,
+.dark .dashboard-error p {
+  color: var(--text-muted);
+}
+
+/* ── Stat debug (warning) ── */
+.dark .stat-debug {
+  background: rgba(245, 158, 11, 0.08);
+  color: #d97706;
 }
