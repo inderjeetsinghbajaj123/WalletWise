@@ -139,10 +139,14 @@ const budgetRoutes = require('./routes/budgetRoutes');
 const savingGoalRoutes = require('./routes/savingGoalRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const errHandler = require('./middleware/errorHandler');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const insightsRoutes = require('./routes/insightsRoutes');
 
 // ==================== ROUTE MOUNTING ====================
+app.get('/test-error', asyncHandler(async (req,res)=>{
+  throw new Error("Working!");
+}));
 app.use('/api/auth', authRoutes);
 app.use('/auth', oauthRoutes);
 app.use('/api/budget', budgetRoutes);
@@ -252,6 +256,8 @@ app.all('*', (req, res, next) => {
 
 // Global Error Middleware
 app.use(globalErrorHandler);
+app.use(errHandler);
+
 
 // ==================== START SERVER ====================
 // Initialize Scheduler

@@ -78,9 +78,13 @@ const addTransaction = catchAsync(async (req, res, next) => {
 const addTransaction = async (req, res) => {
     try {
         const userId = req.userId;
-        if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
 
         const parsed = transactionSchema.safeParse(req.body);
+
         if (!parsed.success) {
             return res.status(400).json({
                 success: false,
@@ -100,19 +104,36 @@ const addTransaction = async (req, res) => {
             recurringInterval
         } = parsed.data;
 
+        // ===== Duplicate Detection =====
+        const duplicateWindow = 24 * 60 * 60 * 1000;
+        const sinceDate = new Date(Date.now() - duplicateWindow);
+
+        const possibleDuplicate = await Transaction.findOne({
+            userId,
+            type,
+            amount,
+            category,
+            date: { $gte: sinceDate }
+        });
+
+        if (possibleDuplicate) {
+            return res.status(409).json({
+                success: false,
+                duplicate: true,
+                message: "A similar transaction was recently added. Do you still want to continue?"
+            });
+        }
+
         await withTransaction(async (session) => {
+
             let nextExecutionDate = null;
 
             if (isRecurring && recurringInterval) {
                 const now = new Date();
 
-                if (recurringInterval === "daily") {
-                    now.setDate(now.getDate() + 1);
-                } else if (recurringInterval === "weekly") {
-                    now.setDate(now.getDate() + 7);
-                } else if (recurringInterval === "monthly") {
-                    now.setMonth(now.getMonth() + 1);
-                }
+                if (recurringInterval === "daily") now.setDate(now.getDate() + 1);
+                else if (recurringInterval === "weekly") now.setDate(now.getDate() + 7);
+                else if (recurringInterval === "monthly") now.setMonth(now.getMonth() + 1);
 
                 nextExecutionDate = now;
             }
@@ -133,11 +154,13 @@ const addTransaction = async (req, res) => {
 
             await transaction.save({ session });
 
-            // Update user wallet balance atomically
             const balanceChange = type === 'income' ? amount : -amount;
-            await User.findByIdAndUpdate(userId, {
-                $inc: { walletBalance: balanceChange }
-            }, { session });
+
+            await User.findByIdAndUpdate(
+                userId,
+                { $inc: { walletBalance: balanceChange } },
+                { session }
+            );
 
             return res.status(201).json({
                 success: true,
@@ -150,11 +173,44 @@ const addTransaction = async (req, res) => {
                     description: transaction.description,
                     date: transaction.date,
                     paymentMethod: transaction.paymentMethod,
-                    mood: transaction.mood
+                    mood: transaction.mood,
+                    isRecurring: transaction.isRecurring,
+                    recurringInterval: transaction.recurringInterval
                 }
             });
+
         });
 });
+
+    } catch (error) {
+        console.error('Add transaction error:', error);
+
+        if (
+            error.message &&
+            error.message.includes('Transaction numbers are only allowed on a replica set')
+        ) {
+            return res.status(500).json({
+                success: false,
+                message:
+                    'Database configuration error: Transactions require a Replica Set.'
+            });
+        }
+
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error'
+            });
+        }
+
+        if (!res.headersSent) {
+            res.status(500).json({
+                success: false,
+                message: 'Error adding transaction'
+            });
+        }
+    }
+};
 
 // Get all transactions with pagination and filtering
 const getAllTransactions = async (req, res) => {
