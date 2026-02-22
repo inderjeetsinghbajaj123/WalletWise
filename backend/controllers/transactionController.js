@@ -7,25 +7,25 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
 const transactionSchema = z.object({
-  type: z.enum(['income', 'expense'], {
-    errorMap: () => ({ message: "Type must be either 'income' or 'expense'" })
-  }),
-  amount: z.preprocess(
-    (val) => (typeof val === 'string' ? Number(val) : val),
-    z.number({ invalid_type_error: "Amount must be a number" })
-     .finite()
-     .positive("Amount must be greater than 0")
-  ),
-  category: z.string().trim().min(1, "Category is required").toLowerCase(),
-  description: z.string().trim().optional().default(''),
-  paymentMethod: z.string().trim().optional().default('cash'),
-  mood: z.string().trim().optional().default('neutral'),
-  date: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? undefined : new Date(val)),
-    z.date().optional()
-  ),
-  isRecurring: z.boolean().optional().default(false),
-  recurringInterval: z.enum(['daily', 'weekly', 'monthly']).nullable().optional()
+    type: z.enum(['income', 'expense'], {
+        errorMap: () => ({ message: "Type must be either 'income' or 'expense'" })
+    }),
+    amount: z.preprocess(
+        (val) => (typeof val === 'string' ? Number(val) : val),
+        z.number({ invalid_type_error: "Amount must be a number" })
+            .finite()
+            .positive("Amount must be greater than 0")
+    ),
+    category: z.string().trim().min(1, "Category is required").toLowerCase(),
+    description: z.string().trim().optional().default(''),
+    paymentMethod: z.string().trim().optional().default('cash'),
+    mood: z.string().trim().optional().default('neutral'),
+    date: z.preprocess(
+        (val) => (val === '' || val === null || val === undefined ? undefined : new Date(val)),
+        z.date().optional()
+    ),
+    isRecurring: z.boolean().optional().default(false),
+    recurringInterval: z.enum(['daily', 'weekly', 'monthly']).nullable().optional()
 });
 
 // Helper to handle transaction cleanup
@@ -228,40 +228,40 @@ const getAllTransactions = async (req, res) => {
 
         const query = { userId };
         // ===== Process recurring transactions =====
-const recurringTransactions = await Transaction.find({
-    userId,
-    isRecurring: true,
-    nextExecutionDate: { $lte: new Date() }
-});
+        const recurringTransactions = await Transaction.find({
+            userId,
+            isRecurring: true,
+            nextExecutionDate: { $lte: new Date() }
+        });
 
-for (const rt of recurringTransactions) {
-    const newTransaction = new Transaction({
-        userId: rt.userId,
-        type: rt.type,
-        amount: rt.amount,
-        category: rt.category,
-        description: rt.description,
-        paymentMethod: rt.paymentMethod,
-        mood: rt.mood,
-        date: new Date()
-    });
+        for (const rt of recurringTransactions) {
+            const newTransaction = new Transaction({
+                userId: rt.userId,
+                type: rt.type,
+                amount: rt.amount,
+                category: rt.category,
+                description: rt.description,
+                paymentMethod: rt.paymentMethod,
+                mood: rt.mood,
+                date: new Date()
+            });
 
-    await newTransaction.save();
+            await newTransaction.save();
 
-    // Update next execution date
-    let nextDate = new Date(rt.nextExecutionDate);
+            // Update next execution date
+            let nextDate = new Date(rt.nextExecutionDate);
 
-    if (rt.recurringInterval === "daily") {
-        nextDate.setDate(nextDate.getDate() + 1);
-    } else if (rt.recurringInterval === "weekly") {
-        nextDate.setDate(nextDate.getDate() + 7);
-    } else if (rt.recurringInterval === "monthly") {
-        nextDate.setMonth(nextDate.getMonth() + 1);
-    }
+            if (rt.recurringInterval === "daily") {
+                nextDate.setDate(nextDate.getDate() + 1);
+            } else if (rt.recurringInterval === "weekly") {
+                nextDate.setDate(nextDate.getDate() + 7);
+            } else if (rt.recurringInterval === "monthly") {
+                nextDate.setMonth(nextDate.getMonth() + 1);
+            }
 
-    rt.nextExecutionDate = nextDate;
-    await rt.save();
-}
+            rt.nextExecutionDate = nextDate;
+            await rt.save();
+        }
 
 
         // Apply filters

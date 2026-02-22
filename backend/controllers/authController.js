@@ -175,11 +175,9 @@ const sendPasswordResetInstructions = async (user, { skipEmail } = {}) => {
   return { otp, token, resetLink, delivered: true };
 };
 
-const register = catchAsync(async (req, res, next) => {
-  const parsed = registerSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return next(new AppError(parsed.error.errors[0]?.message || 'Invalid input', 400));
 const register = asyncHandler(async (req, res) => {
+  console.log('📝 Incoming Registration Request:', JSON.stringify(req.body, null, 2));
+
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({
@@ -192,7 +190,10 @@ const register = asyncHandler(async (req, res) => {
 
   const existing = await User.findOne({ $or: [{ email }, { studentId }] });
   if (existing) {
-    return next(new AppError('Registration failed. Please check your details.', 400));
+    return res.status(400).json({
+      success: false,
+      message: 'Registration failed. Please check your details.'
+    });
   }
 
   const user = new User({
@@ -206,6 +207,7 @@ const register = asyncHandler(async (req, res) => {
     walletBalance: 0,
     emailVerified: false
   });
+
   await user.setPassword(password);
   await User.saveWithUniqueStudentId(user);
 
@@ -224,76 +226,6 @@ const register = asyncHandler(async (req, res) => {
     success: true,
     message: 'Registration successful',
     user: safeUser(user)
-  });
-});
-
-const login = catchAsync(async (req, res, next) => {
-  const parsed = loginSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return next(new AppError(parsed.error.errors[0]?.message || 'Invalid input', 400));
-  }
-
-  const { email, password } = parsed.data;
-  const user = await User.findOne({ email });
-
-  if (!user || !user.passwordHash) {
-    return next(new AppError('Invalid email or password', 401));
-  }
-
-  if (!user.emailVerified) {
-    return res.status(403).json({
-      success: false,
-      code: 'EMAIL_NOT_VERIFIED',
-      message: 'Please verify your email before logging in.',
-      email: user.email
-    });
-  }
-
-  const isMatch = await user.comparePassword(password);
-  if (!isMatch) {
-    return next(new AppError('Invalid email or password', 401));
-  }
-
-  const accessToken = signAccessToken(user);
-  const refreshToken = signRefreshToken(user);
-  user.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-  await User.saveWithUniqueStudentId(user);
-
-  setAuthCookies(res, accessToken, refreshToken);
-
-  return res.json({
-    success: true,
-    message: 'Login successful',
-    user: safeUser(user)
-  });
-});
-    return res.status(400).json({
-      success: false,
-      message: 'User already exists with this email or student ID'
-    });
-  }
-
-  const user = new User({
-    studentId,
-    fullName,
-    email,
-    phoneNumber: phoneNumber || '',
-    department,
-    year,
-    provider: 'local',
-    walletBalance: 0,
-    emailVerified: false
-  });
-
-  await user.setPassword(password);
-  await User.saveWithUniqueStudentId(user);
-  await sendVerificationOtp(user);
-
-  return res.status(201).json({
-    success: true,
-    message: 'Registration successful. Please verify your email.',
-    requiresVerification: true,
-    email: user.email
   });
 });
 
@@ -357,7 +289,7 @@ const logout = asyncHandler(async (req, res) => {
         user.refreshTokenHash = null;
         await user.save();
       }
-    } catch (error) {}
+    } catch (error) { }
   }
 
   clearAuthCookies(res);
@@ -694,6 +626,8 @@ module.exports = {
   googleCallback,
   verifyEmail,
   resendEmailOtp,
+  requestPasswordReset,
+  verifyPasswordResetOtp,
   forgotPassword,
   resetPassword
 };
