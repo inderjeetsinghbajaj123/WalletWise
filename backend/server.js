@@ -104,8 +104,7 @@ app.use(speedLimiter);
 app.use(globalLimiter);
 
 // 4. Apply stricter rate limiter to auth routes
-app.use('/api/auth', authLimiter);
-app.use("/api/analytics", analyticsRoutes);
+app.use('/api/v1/auth', authLimiter);
 
 
 // ==================== DATABASE CONNECTION ====================
@@ -136,25 +135,15 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // ==================== ROUTE IMPORTS ====================
-// const authRoutes = require('./routes/authRoutes');
-const budgetRoutes = require('./routes/budgetRoutes');
-const savingGoalRoutes = require('./routes/savingGoalRoutes');
-const transactionRoutes = require('./routes/transactionRoutes');
-const dashboardRoutes = require('./routes/dashboardRoutes');
+const v1Routes = require('./routes/v1');
 const errHandler = require('./middleware/errorHandler');
-const subscriptionRoutes = require('./routes/subscriptionRoutes');
-const insightsRoutes = require('./routes/insightsRoutes');
 
 // ==================== ROUTE MOUNTING ====================
+app.use('/api/v1', v1Routes);
 
-app.use('/api/auth', authRoutes);
+// Optional: Keep legacy /api paths for transition or redirect them
+// For now, let's keep the OAuth at /auth as it might be used by external providers
 app.use('/auth', oauthRoutes);
-app.use('/api/budget', budgetRoutes);
-app.use('/api/savings-goals', savingGoalRoutes);
-app.use('/api/transactions', transactionRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/subscriptions', subscriptionRoutes);
-app.use('/api/insights', insightsRoutes);
 
 // ==================== HEALTH CHECK ====================
 
