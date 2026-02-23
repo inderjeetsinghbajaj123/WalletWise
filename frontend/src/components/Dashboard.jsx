@@ -518,7 +518,8 @@ const Dashboard = () => {
                     onClick={() => handleNavigation(item.path)}
                     className={`nav-link ${active ? 'active' : ''}`}
                     aria-current={active ? 'page' : undefined}
-                  >
+                    title={item.label}
+                  > 
                     <Icon className="nav-icon" />
                     <span>{item.label}</span>
                     {active && <div className="nav-indicator"></div>}
@@ -532,12 +533,13 @@ const Dashboard = () => {
         {/* Right: User Profile */}
         <div className="nav-right" ref={userMenuRef}>
           <button
-            className="user-profile-trigger"
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            aria-expanded={showUserMenu}
-            aria-label="User menu"
-            aria-haspopup="true"
-          >
+              className="user-profile-trigger"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              aria-expanded={showUserMenu}
+              aria-label="User menu"
+              aria-haspopup="true"
+              title="Open user menu"
+            >
             <div className="user-avatar" aria-hidden="true">
               {user?.fullName?.charAt(0) || user?.name?.charAt(0) || 'U'}
             </div>
@@ -559,11 +561,12 @@ const Dashboard = () => {
 
               <div className="dropdown-divider"></div>
 
-              <Link
+             <Link
                 to="/profile"
                 className="dropdown-item"
                 role="menuitem"
                 onClick={() => setShowUserMenu(false)}
+                title="View profile"
               >
                 <FaUserCircle />
                 <span>Profile</span>
@@ -574,6 +577,7 @@ const Dashboard = () => {
                 className="dropdown-item"
                 role="menuitem"
                 onClick={() => setShowUserMenu(false)}
+                title="Open settings"
               >
                 <FaCog />
                 <span>Settings</span>
@@ -582,10 +586,11 @@ const Dashboard = () => {
               <div className="dropdown-divider"></div>
 
               <button
-                onClick={handleLogout}
-                className="dropdown-item logout"
-                role="menuitem"
-              >
+                  onClick={handleLogout}
+                  className="dropdown-item logout"
+                  role="menuitem"
+                  title="Logout"
+                >
                 <FaSignOutAlt />
                 <span>Logout</span>
               </button>
@@ -758,7 +763,7 @@ const Dashboard = () => {
         <div className="quick-actions-section">
           <h2 className="section-title">Quick Actions</h2>
           <div className="quick-actions-grid">
-            <button onClick={() => setShowAddExpenseModal(true)} className="action-card">
+            <button onClick={() => setShowAddExpenseModal(true)} className="action-card" title="Add a new expense">
               <div className="action-icon blue">
                 <FaMoneyBillWave />
               </div>
@@ -865,10 +870,7 @@ const Dashboard = () => {
               <h3>Recent Transactions</h3>
               <p className="section-subtitle">{recentTransactions.length} transactions this month</p>
             </div>
-            <button
-              onClick={() => navigate('/transactions')}
-              className="view-all-btn"
-            >
+            <button onClick={() => navigate('/transactions')} className="view-all-btn" title="View all transactions">
               View All ({recentTransactions.length})
             </button>
           </div>
