@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { DashboardSkeleton } from './SkeletonLoader';
 import './dashboard.css';
 import AddExpense from '../pages/AddExpense';
 import AddIncome from '../pages/AddIncome';
@@ -12,10 +13,10 @@ import {
   FaWallet, FaSignOutAlt, FaUserCircle, FaChevronDown,
   FaMoneyBillWave, FaChartLine, FaPiggyBank,
   FaHandHoldingUsd, FaBullseye, FaChartBar, FaExclamationTriangle,
-  FaBrain, FaArrowUp, FaArrowDown, FaCalendarAlt,
-  FaSync, FaExclamationCircle, FaHome, FaExchangeAlt,
-  FaCog, FaChartPie, FaEdit, FaTrash, FaCalendarCheck, FaBell,
-  FaSun, FaMoon, FaMagic, FaCreditCard, FaFileAlt, FaFilter, FaSearch
+  FaBrain, FaArrowUp, FaCalendarAlt,
+  FaSync, FaHome, FaExchangeAlt,
+  FaCog, FaChartPie,
+  FaMagic
 } from 'react-icons/fa';
 import { Line, Pie } from 'react-chartjs-2';
 import { toast } from 'react-hot-toast';
@@ -145,8 +146,8 @@ const Dashboard = () => {
   ];
 
   // Fetch dashboard data
-  const fetchDashboardData = useCallback(async () => {
-    if (refreshing) return; // Prevent multiple simultaneous refreshes
+  const fetchDashboardData = useCallback(async (isForced = false) => {
+    if (refreshing && !isForced) return; // Prevent multiple simultaneous manual refreshes
     setRefreshing(true);
     try {
       console.log('???? Fetching dashboard data...');
@@ -283,8 +284,8 @@ const Dashboard = () => {
 
       if (response.data.success) {
         setShowAddExpenseModal(false);
-        await fetchDashboardData();
-        toast.success("Expenses added succesfullly.", {
+        await fetchDashboardData(true);
+        toast.success('Expenses added successfully.', {
           style: {
             background: "#16a34a",
             color: "#ffffff",
@@ -311,8 +312,8 @@ const Dashboard = () => {
 
       if (response.data.success) {
         setShowAddIncomeModal(false);
-        await fetchDashboardData();
-        toast.success("Income Added Successfully.", {
+        await fetchDashboardData(true);
+        toast.success('Income Added Successfully.', {
           style: {
             background: "#16a34a",
             color: "#ffffff",
@@ -433,9 +434,16 @@ const Dashboard = () => {
         ticks: {
           color: "#64748b",
           callback: function (value) {
-            return "₹" + value;
-          },
-        },
+            const currency = user?.currency || 'USD';
+            const locale = currency === 'INR' ? 'en-IN' : 'en-US';
+            return new Intl.NumberFormat(locale, {
+              style: 'currency',
+              currency: currency,
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0
+            }).format(value);
+          }
+        }
       },
       x: {
         grid: {
@@ -450,10 +458,12 @@ const Dashboard = () => {
 
   // ============ UTILITIES ============
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
+    const currency = user?.currency || 'USD';
+    const locale = currency === 'INR' ? 'en-IN' : 'en-US';
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 0
     }).format(amount);
   };
 
@@ -468,12 +478,7 @@ const Dashboard = () => {
 
   // ============ RENDERING ============
   if (loading) {
-    return (
-      <div className="dashboard-loading">
-        <div className="spinner"></div>
-        <p>Loading your financial dashboard...</p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error) {
