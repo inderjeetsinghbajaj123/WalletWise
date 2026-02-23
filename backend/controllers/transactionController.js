@@ -45,36 +45,6 @@ const withTransaction = async (operation) => {
 };
 
 // Add Transaction
-const addTransaction = catchAsync(async (req, res, next) => {
-    const userId = req.userId;
-        const {
-    type,
-    amount,
-    category,
-    description,
-    paymentMethod,
-    mood,
-    date,
-    isRecurring,
-    recurringInterval
-} = req.body;
-
-    if (!userId) {
-        return next(new AppError('Unauthorized', 401));
-    }
-
-    if (!type || amount === undefined || amount === null || !category) {
-        return next(new AppError('Type, amount, and category are required', 400));
-    }
-
-    const numericAmount = Number(amount);
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-        return next(new AppError('Amount must be a valid number greater than 0', 400));
-    }
-
-    if (!['income', 'expense'].includes(type)) {
-        return next(new AppError('Type must be either income or expense', 400));
-    }
 const addTransaction = async (req, res) => {
     try {
         const userId = req.userId;
@@ -125,7 +95,6 @@ const addTransaction = async (req, res) => {
         }
 
         await withTransaction(async (session) => {
-
             let nextExecutionDate = null;
 
             if (isRecurring && recurringInterval) {
@@ -178,9 +147,7 @@ const addTransaction = async (req, res) => {
                     recurringInterval: transaction.recurringInterval
                 }
             });
-
         });
-});
 
     } catch (error) {
         console.error('Add transaction error:', error);
