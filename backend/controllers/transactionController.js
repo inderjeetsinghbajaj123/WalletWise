@@ -3,8 +3,7 @@ const Transaction = require('../models/Transactions');
 const User = require('../models/User');
 const { z } = require('zod');
 const { isValidObjectId } = require('../utils/validation');
-const AppError = require('../utils/appError');
-const catchAsync = require('../utils/catchAsync');
+
 
 const transactionSchema = z.object({
     type: z.enum(['income', 'expense'], {
@@ -45,36 +44,6 @@ const withTransaction = async (operation) => {
 };
 
 // Add Transaction
-const addTransaction = catchAsync(async (req, res, next) => {
-    const userId = req.userId;
-        const {
-    type,
-    amount,
-    category,
-    description,
-    paymentMethod,
-    mood,
-    date,
-    isRecurring,
-    recurringInterval
-} = req.body;
-
-    if (!userId) {
-        return next(new AppError('Unauthorized', 401));
-    }
-
-    if (!type || amount === undefined || amount === null || !category) {
-        return next(new AppError('Type, amount, and category are required', 400));
-    }
-
-    const numericAmount = Number(amount);
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-        return next(new AppError('Amount must be a valid number greater than 0', 400));
-    }
-
-    if (!['income', 'expense'].includes(type)) {
-        return next(new AppError('Type must be either income or expense', 400));
-    }
 const addTransaction = async (req, res) => {
     try {
         const userId = req.userId;
@@ -104,7 +73,7 @@ const addTransaction = async (req, res) => {
             recurringInterval
         } = parsed.data;
 
-        // ===== Duplicate Detection =====
+        // Duplicate Detection
         const duplicateWindow = 24 * 60 * 60 * 1000;
         const sinceDate = new Date(Date.now() - duplicateWindow);
 
@@ -120,7 +89,7 @@ const addTransaction = async (req, res) => {
             return res.status(409).json({
                 success: false,
                 duplicate: true,
-                message: "A similar transaction was recently added. Do you still want to continue?"
+                message: "A similar transaction was recently added."
             });
         }
 
@@ -165,43 +134,13 @@ const addTransaction = async (req, res) => {
             return res.status(201).json({
                 success: true,
                 message: 'Transaction added successfully',
-                transaction: {
-                    id: transaction._id,
-                    type: transaction.type,
-                    amount: transaction.amount,
-                    category: transaction.category,
-                    description: transaction.description,
-                    date: transaction.date,
-                    paymentMethod: transaction.paymentMethod,
-                    mood: transaction.mood,
-                    isRecurring: transaction.isRecurring,
-                    recurringInterval: transaction.recurringInterval
-                }
+                transaction
             });
 
         });
-});
 
     } catch (error) {
         console.error('Add transaction error:', error);
-
-        if (
-            error.message &&
-            error.message.includes('Transaction numbers are only allowed on a replica set')
-        ) {
-            return res.status(500).json({
-                success: false,
-                message:
-                    'Database configuration error: Transactions require a Replica Set.'
-            });
-        }
-
-        if (error.name === 'ValidationError') {
-            return res.status(400).json({
-                success: false,
-                message: 'Validation error'
-            });
-        }
 
         if (!res.headersSent) {
             res.status(500).json({
@@ -211,7 +150,6 @@ const addTransaction = async (req, res) => {
         }
     }
 };
-
 // Get all transactions with pagination and filtering
 const getAllTransactions = async (req, res) => {
     try {
@@ -334,6 +272,7 @@ const getAllTransactions = async (req, res) => {
     }
 };
 
+
 // Update transaction
 const updateTransaction = async (req, res) => {
     try {
@@ -419,49 +358,110 @@ const updateTransaction = async (req, res) => {
     }
 };
 
-// Delete transaction
 const deleteTransaction = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.userId;
 
         if (!isValidObjectId(id)) {
-            return res.status(400).json({ success: false, message: 'Invalid transaction ID format' });
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid transaction ID format'
+            });
         }
 
-        await withTransaction(async (session) => {
-            const transaction = await Transaction.findOneAndDelete({ _id: id, userId }).session(session);
+        const transaction = await Transaction.findOneAndDelete({
+            _id: id,
+            userId
+        });
 
-            if (!transaction) {
-                const err = new Error('Transaction not found');
-                err.status = 404;
-                throw err;
-            }
-
-            // Revert transaction effect on balance
-            const balanceChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
-
-            await User.findByIdAndUpdate(userId, {
-                $inc: { walletBalance: balanceChange }
-            }, { session });
-
-            res.json({
-                success: true,
-                message: 'Transaction deleted successfully'
+        if (!transaction) {
+            return res.status(404).json({
+                success: false,
+                message: 'Transaction not found'
             });
+        }
+
+        // revert wallet balance
+        const balanceChange =
+            transaction.type === 'income'
+                ? -transaction.amount
+                : transaction.amount;
+
+        await User.findByIdAndUpdate(userId, {
+            $inc: { walletBalance: balanceChange }
+        });
+
+        res.json({
+            success: true,
+            message: 'Transaction deleted successfully',
+            deletedTransaction: transaction
         });
 
     } catch (error) {
         console.error('Delete transaction error:', error);
-        if (!res.headersSent) {
-            res.status(error.status || 500).json({ success: false, message: error.message || 'Error deleting transaction' });
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting transaction'
+        });
+    }
+};
+
+const undoTransaction = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { deletedTransaction } = req.body;
+
+        if (!deletedTransaction) {
+            return res.status(400).json({
+                success: false,
+                message: 'No transaction data provided for undo'
+            });
         }
+
+        // Restore transaction
+        const restored = new Transaction({
+            userId,
+            type: deletedTransaction.type,
+            amount: deletedTransaction.amount,
+            category: deletedTransaction.category,
+            description: deletedTransaction.description,
+            paymentMethod: deletedTransaction.paymentMethod,
+            mood: deletedTransaction.mood,
+            date: deletedTransaction.date || new Date()
+        });
+
+        await restored.save();
+
+        // Restore wallet balance
+        const balanceChange =
+            restored.type === 'income'
+                ? restored.amount
+                : -restored.amount;
+
+        await User.findByIdAndUpdate(userId, {
+            $inc: { walletBalance: balanceChange }
+        });
+
+        res.json({
+            success: true,
+            message: 'Transaction restored successfully',
+            transaction: restored
+        });
+
+    } catch (error) {
+        console.error('Undo transaction error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };
 
 module.exports = {
-    addTransaction,
-    getAllTransactions,
-    updateTransaction,
-    deleteTransaction
+   addTransaction,
+   getAllTransactions,
+   updateTransaction,
+   deleteTransaction,
+   undoTransaction
 };
