@@ -3,7 +3,8 @@ const Transaction = require('../models/Transactions');
 const User = require('../models/User');
 const { z } = require('zod');
 const { isValidObjectId } = require('../utils/validation');
-
+const AppError = require('../utils/appError');
+const catchAsync = require('../utils/catchAsync');
 
 const transactionSchema = z.object({
     type: z.enum(['income', 'expense'], {
@@ -43,258 +44,262 @@ const withTransaction = async (operation) => {
     }
 };
 
-// Add Transaction
-const addTransaction = async (req, res) => {
-    try {
-        const userId = req.userId;
+// ================= ADD TRANSACTION =================
+const addTransaction = catchAsync(async (req, res, next) => {
+    const userId = req.userId;
 
-        if (!userId) {
-            return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!userId) {
+        return next(new AppError('Unauthorized', 401));
+    }
+
+    const parsed = transactionSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+        return res.status(400).json({
+            success: false,
+            message: parsed.error.errors[0]?.message || 'Invalid input'
+        });
+    }
+
+    const {
+        type,
+        amount,
+        category,
+        description,
+        paymentMethod,
+        mood,
+        date,
+        isRecurring,
+        recurringInterval
+    } = parsed.data;
+
+    const duplicateWindow = 24 * 60 * 60 * 1000;
+    const sinceDate = new Date(Date.now() - duplicateWindow);
+
+    const possibleDuplicate = await Transaction.findOne({
+        userId,
+        type,
+        amount,
+        category,
+        date: { $gte: sinceDate }
+    });
+
+    if (possibleDuplicate) {
+        return res.status(409).json({
+            success: false,
+            duplicate: true,
+            message: "A similar transaction was recently added. Do you still want to continue?"
+        });
+    }
+
+    await withTransaction(async (session) => {
+
+        let nextExecutionDate = null;
+
+        if (isRecurring && recurringInterval) {
+            const now = new Date();
+
+            if (recurringInterval === "daily") now.setDate(now.getDate() + 1);
+            else if (recurringInterval === "weekly") now.setDate(now.getDate() + 7);
+            else if (recurringInterval === "monthly") now.setMonth(now.getMonth() + 1);
+
+            nextExecutionDate = now;
         }
 
-        const parsed = transactionSchema.safeParse(req.body);
-
-        if (!parsed.success) {
-            return res.status(400).json({
-                success: false,
-                message: parsed.error.errors[0]?.message || 'Invalid input'
-            });
-        }
-
-        const {
+        const transaction = new Transaction({
+            userId,
             type,
             amount,
             category,
             description,
             paymentMethod,
             mood,
-            date,
+            ...(date ? { date } : {}),
             isRecurring,
-            recurringInterval
-        } = parsed.data;
-const transaction = new Transaction({
-    userId,
-    type,
-    amount,
-    category,
-    description,
-    paymentMethod,
-    mood,
-    ...(date ? { date } : {}),
-    isRecurring,
-    recurringInterval
-});
-
-        // Duplicate Detection
-        const duplicateWindow = 24 * 60 * 60 * 1000;
-        const sinceDate = new Date(Date.now() - duplicateWindow);
-
-        const possibleDuplicate = await Transaction.findOne({
-            userId,
-            type,
-            amount,
-            category,
-            date: { $gte: sinceDate }
+            recurringInterval,
+            nextExecutionDate
         });
 
-        if (possibleDuplicate) {
-            return res.status(409).json({
-                success: false,
-                duplicate: true,
-                message: "A similar transaction was recently added."
-            });
+        await transaction.save({ session });
+
+        const balanceChange = type === 'income' ? amount : -amount;
+
+        await User.findByIdAndUpdate(
+            userId,
+            { $inc: { walletBalance: balanceChange } },
+            { session }
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: 'Transaction added successfully',
+            transaction
+        });
+    });
+});
+
+// ================= GET ALL TRANSACTIONS =================
+const getAllTransactions = catchAsync(async (req, res) => {
+    const userId = req.userId;
+    const {
+        page = 1,
+        limit = 10,
+        search,
+        type,
+        startDate,
+        endDate,
+        sort = 'newest'
+    } = req.query;
+
+    const query = { userId };
+
+    const recurringTransactions = await Transaction.find({
+        userId,
+        isRecurring: true,
+        nextExecutionDate: { $lte: new Date() }
+    });
+
+    for (const rt of recurringTransactions) {
+        const newTransaction = new Transaction({
+            userId: rt.userId,
+            type: rt.type,
+            amount: rt.amount,
+            category: rt.category,
+            description: rt.description,
+            paymentMethod: rt.paymentMethod,
+            mood: rt.mood,
+            date: new Date()
+        });
+
+        await newTransaction.save();
+
+        let nextDate = new Date(rt.nextExecutionDate);
+
+        if (rt.recurringInterval === "daily") nextDate.setDate(nextDate.getDate() + 1);
+        else if (rt.recurringInterval === "weekly") nextDate.setDate(nextDate.getDate() + 7);
+        else if (rt.recurringInterval === "monthly") nextDate.setMonth(nextDate.getMonth() + 1);
+
+        rt.nextExecutionDate = nextDate;
+        await rt.save();
+    }
+
+    if (type && type !== 'all') query.type = type;
+
+    if (startDate || endDate) {
+        query.date = {};
+        if (startDate) query.date.$gte = new Date(startDate);
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            query.date.$lte = end;
+        }
+    }
+
+    if (search) {
+        const regex = new RegExp(search, 'i');
+        query.$or = [{ description: regex }, { category: regex }];
+    }
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    let sortOptions = { date: -1 };
+    if (sort === 'oldest') sortOptions = { date: 1 };
+    else if (sort === 'amount-high') sortOptions = { amount: -1 };
+    else if (sort === 'amount-low') sortOptions = { amount: 1 };
+
+    const transactions = await Transaction.find(query)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limitNum);
+
+    const totalOptions = await Transaction.countDocuments(query);
+
+    res.json({
+        success: true,
+        transactions,
+        pagination: {
+            total: totalOptions,
+            page: pageNum,
+            pages: Math.ceil(totalOptions / limitNum),
+            limit: limitNum
+        }
+    });
+});
+
+// ================= UPDATE TRANSACTION =================
+const updateTransaction = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    if (!isValidObjectId(id)) {
+        return res.status(400).json({ success: false, message: 'Invalid transaction ID format' });
+    }
+
+    await withTransaction(async (session) => {
+        const oldTransaction = await Transaction.findOne({ _id: id, userId }).session(session);
+
+        if (!oldTransaction) {
+            throw new AppError('Transaction not found', 404);
         }
 
-        await withTransaction(async (session) => {
-            if (isRecurring && recurringInterval) {
-                const now = new Date();
-                if (recurringInterval === "daily") now.setDate(now.getDate() + 1);
-                else if (recurringInterval === "weekly") now.setDate(now.getDate() + 7);
-                else if (recurringInterval === "monthly") now.setMonth(now.getMonth() + 1);
-                transaction.nextExecutionDate = now;
-            }
+        const parsed = transactionSchema.partial().safeParse(req.body);
 
-            await transaction.save({ session });
+        if (!parsed.success) {
+            throw new AppError(parsed.error.errors[0]?.message || 'Invalid input', 400);
+        }
 
-            const balanceChange = type === 'income' ? amount : -amount;
+        const updateData = parsed.data;
+        let balanceChange = 0;
 
+        if (oldTransaction.type === 'income') balanceChange -= oldTransaction.amount;
+        else balanceChange += oldTransaction.amount;
+
+        const newType = updateData.type || oldTransaction.type;
+        const newAmount = updateData.amount ?? oldTransaction.amount;
+
+        if (newType === 'income') balanceChange += newAmount;
+        else balanceChange -= newAmount;
+
+        Object.keys(updateData).forEach(key => {
+            if (updateData[key] !== undefined) oldTransaction[key] = updateData[key];
+        });
+
+        await oldTransaction.save({ session });
+
+        if (balanceChange !== 0) {
             await User.findByIdAndUpdate(
                 userId,
                 { $inc: { walletBalance: balanceChange } },
                 { session }
             );
-
-            return res.status(201).json({
-                success: true,
-                message: 'Transaction added successfully',
-                transaction
-            });
-        });
-
-    } catch (error) {
-        console.error('Add transaction error:', error);
-
-        if (!res.headersSent) {
-            res.status(500).json({
-                success: false,
-                message: 'Error adding transaction'
-            });
-        }
-    }
-};
-// Get all transactions with pagination and filtering
-const getAllTransactions = async (req, res) => {
-    try {
-        const userId = req.userId;
-
-        const {
-            limit = 10,
-            cursor,
-            type,
-            startDate,
-            endDate,
-            search
-        } = req.query;
-
-        const query = { userId };
-        // Recurring transactions are now processed by the dedicated centralized worker (worker.js)
-        // Apply filters
-        if (type && type !== 'all') {
-            query.type = type;
-        }
-
-        if (startDate || endDate) {
-            query.date = {};
-            if (startDate) query.date.$gte = new Date(startDate);
-            if (endDate) query.date.$lte = new Date(endDate);
-        }
-
-        if (search) {
-            const { escapeRegex } = require('../utils/helpers');
-            const safeSearch = escapeRegex(search);
-            const searchRegex = new RegExp(safeSearch, 'i');
-            query.$or = [
-                { description: searchRegex },
-                { category: searchRegex }
-            ];
-        }
-
-        // Cursor logic
-        const mongoose = require("mongoose");
-
-if (cursor) {
-    if (!mongoose.Types.ObjectId.isValid(cursor)) {
-        return res.status(400).json({
-            success: false,
-            message: "Invalid cursor"
-        });
-    }
-
-    query._id = { $lt: new mongoose.Types.ObjectId(cursor) };
-}
-
-        const transactions = await Transaction.find(query)
-            .sort({ _id: -1 })
-            .limit(parseInt(limit));
-
-        let nextCursor = null;
-
-        if (transactions.length === parseInt(limit)) {
-            nextCursor = transactions[transactions.length - 1]._id;
         }
 
         res.json({
             success: true,
-            transactions,
-            pagination: {
-                nextCursor,
-                limit: parseInt(limit)
-            }
+            message: 'Transaction updated successfully',
+            transaction: oldTransaction
         });
-
-    } catch (error) {
-        console.error('Get transactions error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error fetching transactions'
-        });
-    }
-};
-
-
-// Update transaction
-const updateTransaction = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const userId = req.userId;
-        const { type, amount, category, description, paymentMethod, mood, date } = req.body;
-
-        if (!isValidObjectId(id)) {
-            return res.status(400).json({ success: false, message: 'Invalid transaction ID format' });
-        }
-const oldTransaction = await Transaction.findOne({ _id: id, userId });
-
-if (!oldTransaction) {
-    return res.status(404).json({
-        success: false,
-        message: 'Transaction not found'
     });
-}
-
-const parsed = transactionSchema.partial().safeParse(req.body);
-
-if (!parsed.success) {
-    return res.status(400).json({
-        success: false,
-        message: parsed.error.errors[0]?.message || 'Invalid input'
-    });
-}
-
-const updateData = parsed.data;
-
-Object.assign(oldTransaction, updateData);
-
-await oldTransaction.save();
-
-res.json({
-    success: true,
-    message: 'Transaction updated successfully',
-    transaction: oldTransaction
 });
-       
-    } catch (error) {
-        console.error('Update transaction error:', error);
-        if (!res.headersSent) {
-            res.status(error.status || 500).json({ success: false, message: error.message || 'Error updating transaction' });
-        }
+
+// ================= DELETE TRANSACTION =================
+const deleteTransaction = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    if (!isValidObjectId(id)) {
+        return res.status(400).json({ success: false, message: 'Invalid transaction ID format' });
     }
-};
 
-const deleteTransaction = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const userId = req.userId;
-
-        if (!isValidObjectId(id)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid transaction ID format'
-            });
-        }
-
-        const transaction = await Transaction.findOneAndDelete({
-            _id: id,
-            userId
-        });
+    await withTransaction(async (session) => {
+        const transaction = await Transaction.findOneAndDelete({ _id: id, userId }).session(session);
 
         if (!transaction) {
-            return res.status(404).json({
-                success: false,
-                message: 'Transaction not found'
-            });
+            throw new AppError('Transaction not found', 404);
         }
 
-        // revert wallet balance
         const balanceChange =
             transaction.type === 'income'
                 ? -transaction.amount
@@ -387,41 +392,16 @@ const undoTransaction = async (req, res) => {
         // Restore transaction
         const restored = new Transaction({
             userId,
-            type: deletedTransaction.type,
-            amount: deletedTransaction.amount,
-            category: deletedTransaction.category,
-            description: deletedTransaction.description,
-            paymentMethod: deletedTransaction.paymentMethod,
-            mood: deletedTransaction.mood,
-            date: deletedTransaction.date || new Date()
-        });
-
-        await restored.save();
-
-        // Restore wallet balance
-        const balanceChange =
-            restored.type === 'income'
-                ? restored.amount
-                : -restored.amount;
-
-        await User.findByIdAndUpdate(userId, {
-            $inc: { walletBalance: balanceChange }
-        });
+            { $inc: { walletBalance: balanceChange } },
+            { session }
+        );
 
         res.json({
             success: true,
-            message: 'Transaction restored successfully',
-            transaction: restored
+            message: 'Transaction deleted successfully'
         });
-
-    } catch (error) {
-        console.error('Undo transaction error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
+    });
+});
 
 module.exports = {
    addTransaction,
