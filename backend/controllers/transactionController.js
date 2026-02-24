@@ -72,18 +72,18 @@ const addTransaction = async (req, res) => {
             isRecurring,
             recurringInterval
         } = parsed.data;
-const transaction = new Transaction({
-    userId,
-    type,
-    amount,
-    category,
-    description,
-    paymentMethod,
-    mood,
-    ...(date ? { date } : {}),
-    isRecurring,
-    recurringInterval
-});
+        const transaction = new Transaction({
+            userId,
+            type,
+            amount,
+            category,
+            description,
+            paymentMethod,
+            mood,
+            ...(date ? { date } : {}),
+            isRecurring,
+            recurringInterval
+        });
 
         // Duplicate Detection
         const duplicateWindow = 24 * 60 * 60 * 1000;
@@ -182,16 +182,16 @@ const getAllTransactions = async (req, res) => {
         // Cursor logic
         const mongoose = require("mongoose");
 
-if (cursor) {
-    if (!mongoose.Types.ObjectId.isValid(cursor)) {
-        return res.status(400).json({
-            success: false,
-            message: "Invalid cursor"
-        });
-    }
+        if (cursor) {
+            if (!mongoose.Types.ObjectId.isValid(cursor)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid cursor"
+                });
+            }
 
-    query._id = { $lt: new mongoose.Types.ObjectId(cursor) };
-}
+            query._id = { $lt: new mongoose.Types.ObjectId(cursor) };
+        }
 
         const transactions = await Transaction.find(query)
             .sort({ _id: -1 })
@@ -232,36 +232,36 @@ const updateTransaction = async (req, res) => {
         if (!isValidObjectId(id)) {
             return res.status(400).json({ success: false, message: 'Invalid transaction ID format' });
         }
-const oldTransaction = await Transaction.findOne({ _id: id, userId });
+        const oldTransaction = await Transaction.findOne({ _id: id, userId });
 
-if (!oldTransaction) {
-    return res.status(404).json({
-        success: false,
-        message: 'Transaction not found'
-    });
-}
+        if (!oldTransaction) {
+            return res.status(404).json({
+                success: false,
+                message: 'Transaction not found'
+            });
+        }
 
-const parsed = transactionSchema.partial().safeParse(req.body);
+        const parsed = transactionSchema.partial().safeParse(req.body);
 
-if (!parsed.success) {
-    return res.status(400).json({
-        success: false,
-        message: parsed.error.errors[0]?.message || 'Invalid input'
-    });
-}
+        if (!parsed.success) {
+            return res.status(400).json({
+                success: false,
+                message: parsed.error.errors[0]?.message || 'Invalid input'
+            });
+        }
 
-const updateData = parsed.data;
+        const updateData = parsed.data;
 
-Object.assign(oldTransaction, updateData);
+        Object.assign(oldTransaction, updateData);
 
-await oldTransaction.save();
+        await oldTransaction.save();
 
-res.json({
-    success: true,
-    message: 'Transaction updated successfully',
-    transaction: oldTransaction
-});
-       
+        res.json({
+            success: true,
+            message: 'Transaction updated successfully',
+            transaction: oldTransaction
+        });
+
     } catch (error) {
         console.error('Update transaction error:', error);
         if (!res.headersSent) {
@@ -310,11 +310,11 @@ const deleteTransaction = async (req, res) => {
             deletedTransaction: transaction
         });
 
-res.json({
-    success: true,
-    message: 'Transaction deleted successfully'
-});
-           } catch (error) {
+        res.json({
+            success: true,
+            message: 'Transaction deleted successfully'
+        });
+    } catch (error) {
         console.error('Delete transaction error:', error);
         res.status(500).json({
             success: false,
@@ -351,7 +351,11 @@ const skipNextOccurrence = async (req, res) => {
         } else if (transaction.recurringInterval === "weekly") {
             updatedNextDate.setDate(updatedNextDate.getDate() + 7);
         } else if (transaction.recurringInterval === "monthly") {
-            updatedNextDate.setMonth(updatedNextDate.getMonth() + 1);
+            const currentMonth = updatedNextDate.getMonth();
+            updatedNextDate.setMonth(currentMonth + 1);
+            if (updatedNextDate.getMonth() !== ((currentMonth + 1) % 12)) {
+                updatedNextDate.setDate(0);
+            }
         }
 
         transaction.nextExecutionDate = updatedNextDate;
@@ -424,10 +428,10 @@ const undoTransaction = async (req, res) => {
 };
 
 module.exports = {
-   addTransaction,
-   getAllTransactions,
-   updateTransaction,
-   deleteTransaction,
-   undoTransaction,
-   skipNextOccurrence
+    addTransaction,
+    getAllTransactions,
+    updateTransaction,
+    deleteTransaction,
+    undoTransaction,
+    skipNextOccurrence
 };
