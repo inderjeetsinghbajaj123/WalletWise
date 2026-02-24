@@ -120,8 +120,7 @@ const AddExpense = ({ isOpen, onClose, onSuccess, transactionToEdit }) => {
         }
       }
     } catch (err) {
-      console.error("Failed to add expense:", err);
-      alert("Failed to add expense. Please try again.");
+      // Interceptor handles the toast
     } finally {
       setLoading(false);
     }

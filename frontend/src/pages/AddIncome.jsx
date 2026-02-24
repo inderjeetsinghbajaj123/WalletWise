@@ -68,7 +68,7 @@ const AddIncome = ({ isOpen, onClose, onSuccess }) => {
         });
       }
     } catch (err) {
-      console.error('Error adding income:', err);
+      // Interceptor handles the toast
     } finally {
       setLoading(false);
     }

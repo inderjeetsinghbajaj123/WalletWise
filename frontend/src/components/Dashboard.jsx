@@ -62,7 +62,6 @@ const Dashboard = () => {
     budgetUsedPercentage: 0,
     expenseTrend: 0,
   });
-  const [error, setError] = useState(null);
   const [timeOfDay, setTimeOfDay] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -193,20 +192,9 @@ const Dashboard = () => {
             hour12: true,
           }),
         );
-      } else {
-        console.error("❌ Dashboard API failed:", dashboardData.message);
-        setError("Failed to load dashboard data");
       }
     } catch (err) {
-      console.error("❌ Error fetching dashboard data:", err);
-      console.error("❌ Error details:", err.response?.data || err.message);
-
-      if (err.response?.status === 401) {
-        await logout();
-        navigate("/login");
-      } else {
-        setError("Failed to connect to server. Please try again.");
-      }
+      // Interceptor handles the toast
     } finally {
       setRefreshing(false);
     }
@@ -241,10 +229,6 @@ const Dashboard = () => {
         const options = { month: 'long', day: 'numeric', year: 'numeric' };
         setCurrentDate(now.toLocaleDateString('en-US', options));
 
-      } catch (err) {
-        console.error('Dashboard initialization error:', err);
-        setError('Failed to initialize dashboard.');
-        setTimeout(() => navigate('/login'), 2000);
       } finally {
         setLoading(false);
       }
@@ -444,22 +428,6 @@ const Dashboard = () => {
   // ============ RENDERING ============
   if (loading) {
     return <DashboardSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <div className="dashboard-error">
-        <FaExclamationTriangle size={48} />
-        <h2>Something went wrong</h2>
-        <p>{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="btn-primary"
-        >
-          Try Again
-        </button>
-      </div>
-    );
   }
 
   return (

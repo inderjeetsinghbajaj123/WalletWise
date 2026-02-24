@@ -60,13 +60,11 @@ const Budget = () => {
   const [wizardBudget, setWizardBudget] = useState(25000);
   const [wizardPreset, setWizardPreset] = useState('balanced');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [summaryTotals, setSummaryTotals] = useState({ totalBudget: 0, totalSpent: 0 });
 
   useEffect(() => {
     const fetchBudgetSummary = async () => {
       setLoading(true);
-      setError('');
 
       const mapBudget = (budgetData) => {
         const mapped = (budgetData?.categories || []).map((category) => ({
@@ -110,22 +108,13 @@ const Budget = () => {
           }
         }
       } catch (err) {
-        console.error('Failed to load budget summary:', err);
         try {
           const current = await api.get('/api/budget/current');
           if (current?.data?.success && current?.data?.budget) {
             mapBudget(current.data.budget);
-          } else if (err.response?.status === 401) {
-            setError('Please log in to view your budget.');
-          } else {
-            setError('Failed to load budget data. Please try again.');
           }
         } catch (fallbackError) {
-          if (err.response?.status === 401 || fallbackError.response?.status === 401) {
-            setError('Please log in to view your budget.');
-          } else {
-            setError('Failed to load budget data. Please try again.');
-          }
+          // Interceptor handles the toast
         }
       } finally {
         setLoading(false);
@@ -263,21 +252,6 @@ const Budget = () => {
           <div className="overview-grid">
             <div className="overview-card">
               <h3>Loading budget...</h3>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  if (error) {
-    return (
-      <>
-        <AppNavbar />
-        <div className="budget-page">
-          <div className="overview-grid">
-            <div className="overview-card">
-              <h3>{error}</h3>
             </div>
           </div>
         </div>
