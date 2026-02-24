@@ -38,8 +38,8 @@ import PublicRoute from './components/PublicRoute';
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ThemeProvider>
         <Router>
           <div className="app">
             {/* Toast Notifications */}
@@ -269,8 +269,8 @@ function App() {
             </Routes>
           </div>
         </Router>
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 
