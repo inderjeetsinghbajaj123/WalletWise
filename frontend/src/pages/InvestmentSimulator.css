@@ -1,0 +1,69 @@
+.simulator-wrapper {
+  background-color: var(--bg-color, #f9fafb);
+  color: var(--text-color, #1f2937);
+  min-height: 100vh;
+  transition: all 0.3s ease;
+}
+
+.simulator-wrapper.dark {
+  background-color: #111827;
+  color: #f9fafb;
+}
+
+.simulator-layout {
+  display: flex;
+  height: calc(100vh - 64px); /* assuming navbar is 64px tall */
+}
+
+.simulator-main-content {
+  overflow-y: auto;
+  padding: 2rem;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.simulator-wrapper.dark .glass {
+  background: rgba(31, 41, 55, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.simulator-wrapper.dark th,
+.simulator-wrapper.dark td {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.simulator-wrapper.dark .stat-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+}
+
+/* Custom Scrollbar for Market List */
+.max-h-80::-webkit-scrollbar {
+  width: 6px;
+}
+
+.max-h-80::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.max-h-80::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 10px;
+}
+
+.simulator-wrapper.dark .max-h-80::-webkit-scrollbar-thumb {
+  background-color: rgba(75, 85, 99, 0.5);
+}
