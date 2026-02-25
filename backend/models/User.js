@@ -153,6 +153,14 @@ const userSchema = new mongoose.Schema({
   unlockedBadges: [{
     type: String
   }],
+  // Privacy Vault Fields
+  vaultEnabled: {
+    type: Boolean,
+    default: false
+  },
+  vaultSalt: {
+    type: String
+  },
   createdAt: {
     type: Date,
     default: Date.now
