@@ -1,12 +1,16 @@
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transactions');
 const User = require('../models/User');
+
+const STRICT_MODE = process.env.STRICT_WALLET_BALANCE === "true";
 const { z } = require('zod');
 const { isValidObjectId } = require('../utils/validation');
 const logTransactionActivity = require("../utils/activityLogger");
 const TransactionActivity = require("../models/TransactionActivity");
+const { processEvent } = require("../utils/gamificationEngine");
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
+const gamification = require('../utils/gamification');
 const { escapeRegex } = require('../utils/helpers');
 
 // Local development fallback (no MongoDB replica set)
@@ -102,6 +106,32 @@ const addTransaction = catchAsync(async (req, res, next) => {
       nextExecutionDate = now;
     }
 
+    const result = await withTransaction(async (session) => {
+
+        let nextExecutionDate = null;
+
+        if (isRecurring && recurringInterval) {
+            const now = new Date();
+
+    const balanceChange = type === "income" ? amount : -amount;
+
+    await User.findByIdAndUpdate(userId, {
+        $inc: { walletBalance: balanceChange }
+    });
+
+        // Gamification
+        const userDoc = await User.findById(userId).session(session);
+        const gamificationUpdate = processEvent(userDoc, 'TRANSACTION_ADDED');
+        await userDoc.save({ session });
+
+        return { transaction, gamificationUpdate };
+    });
+
+    return res.status(201).json({
+        success: true,
+        message: 'Transaction added successfully',
+        transaction: result.transaction,
+        gamification: result.gamificationUpdate
     const transaction = new Transaction({
       userId,
       type,
@@ -149,13 +179,27 @@ const addTransaction = catchAsync(async (req, res, next) => {
       action: "CREATED"
     });
 
-    return transaction;
+    // Gamification Hook
+    const gamificationResult = await gamification.recordUserActivity(userId);
+    let badgeAwarded = null;
+    
+    // Check for "First Transaction" badge
+    const count = await Transaction.countDocuments({ userId });
+    if (count === 1) {
+       badgeAwarded = await gamification.awardBadge(userId, 'FIRST_TRANSACTION');
+    }
+
+    return { transaction, gamificationResult, badgeAwarded };
   });
 
   return res.status(201).json({
     success: true,
     message: 'Transaction added successfully',
-    transaction: result
+    transaction: result.transaction,
+    gamification: {
+      activity: result.gamificationResult,
+      badge: result.badgeAwarded
+    }
   });
 });
 
@@ -400,6 +444,65 @@ const skipNextOccurrence = catchAsync(async (req, res) => {
   });
 });
 
+const skipNextOccurrence = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid transaction ID format'
+            });
+        }
+
+        const transaction = await Transaction.findOne({ _id: id, userId });
+
+        if (!transaction) {
+            return res.status(404).json({
+                success: false,
+                message: 'Transaction not found'
+            });
+        }
+
+        if (!transaction.isRecurring || !transaction.nextExecutionDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Transaction is not recurring'
+            });
+        }
+
+        let updatedNextDate = new Date(transaction.nextExecutionDate);
+
+        if (transaction.recurringInterval === "daily") {
+            updatedNextDate.setDate(updatedNextDate.getDate() + 1);
+        } else if (transaction.recurringInterval === "weekly") {
+            updatedNextDate.setDate(updatedNextDate.getDate() + 7);
+        } else if (transaction.recurringInterval === "monthly") {
+            const currentMonth = updatedNextDate.getMonth();
+            updatedNextDate.setMonth(currentMonth + 1);
+            if (updatedNextDate.getMonth() !== ((currentMonth + 1) % 12)) {
+                updatedNextDate.setDate(0);
+            }
+        }
+
+        transaction.nextExecutionDate = updatedNextDate;
+        await transaction.save();
+
+        res.json({
+            success: true,
+            message: 'Next occurrence skipped successfully',
+            newNextExecutionDate: transaction.nextExecutionDate
+        });
+
+    } catch (error) {
+        console.error('Skip next occurrence error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error skipping next occurrence'
+        });
+    }
+};
 
 // ================= UNDO TRANSACTION =================
 const undoTransaction = catchAsync(async (req, res) => {

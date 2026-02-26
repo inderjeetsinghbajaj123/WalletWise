@@ -9,25 +9,33 @@ const investmentSchema = new mongoose.Schema({
   symbol: {
     type: String,
     required: true,
-    uppercase: true
+    uppercase: true,
+    trim: true
   },
-  companyName: {
-    type: String,
-    required: true
+  quantity: {
+    type: Number,
+    required: true,
+    min: 0,
+    default: 0
   },
-  shares: {
+  averageBuyPrice: {
     type: Number,
     required: true,
     min: 0
   },
-  averageCost: {
+  currentPrice: {
     type: Number,
     required: true,
     min: 0
+  },
+  lastUpdated: {
+    type: Date,
+    default: Date.now
   }
 }, { timestamps: true });
 
-// Compound index to ensure one record per stock per user
+// Compound index to ensure a user only has one active record per symbol 
+// (or we can just query by userId and symbol)
 investmentSchema.index({ userId: 1, symbol: 1 }, { unique: true });
 
 module.exports = mongoose.model('Investment', investmentSchema);

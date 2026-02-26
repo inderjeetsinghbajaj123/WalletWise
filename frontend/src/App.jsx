@@ -22,7 +22,7 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import DecisionHelper from './pages/DecisionHelper';
 import MoodInsight from './pages/MoodInsight';
-import InvestmentSimulator from './pages/InvestmentSimulator';
+import GamificationDashboard from './pages/GamificationDashboard'; // NEW: Gamification
 import SharedWallets from './pages/SharedWallets';
 import WalletDetails from './pages/WalletDetails';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
@@ -269,8 +269,14 @@ function App() {
                   }
                 />
 
+              {/* Gamification Route */}
               <Route
-                path="/investments"
+                path="/gamification"
+                element={
+                  <ProtectedRoute>
+                    <GamificationDashboard />
+              <Route
+                path="/simulator"
                 element={
                   <ProtectedRoute>
                     <InvestmentSimulator />

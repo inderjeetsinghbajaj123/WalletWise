@@ -21,11 +21,17 @@ import {
   FaBrain, FaArrowUp, FaCalendarAlt, FaSun, FaMoon,
   FaSync, FaHome, FaExchangeAlt,
   FaCog, FaChartPie,
+  FaMagic, FaTrophy, FaSun, FaMoon
   FaMagic, FaSun, FaMoon
   FaMagic, FaTrophy, FaSun, FaMoon, FaLock, FaUnlock
 } from 'react-icons/fa';
 import { Line, Pie } from 'react-chartjs-2';
 import { toast } from 'react-hot-toast';
+import { handleGamificationReward } from '../utils/RewardCelebration';
+import { calculateLevel } from '../utils/gamificationConstants';
+import { FaFire, FaStar, FaSun, FaMoon } from 'react-icons/fa';
+import { useTheme } from '../context/ThemeContext';
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -67,12 +73,12 @@ const Dashboard = () => {
     budgetUsedPercentage: 0,
     expenseTrend: 0,
   });
-  const [error, setError] = useState(null);
   const [timeOfDay, setTimeOfDay] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [lastUpdated, setLastUpdated] = useState(null);
   // const { isDark, toggleTheme } = useTheme(); // CACHE BUST TEMPORARY COMMENT
 
@@ -80,7 +86,7 @@ const Dashboard = () => {
   const mobileMenuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: authUser, loading: authLoading, logout } = useAuth();
+  const { user: authUser, loading: authLoading, logout, reloadUser } = useAuth();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -168,7 +174,9 @@ const Dashboard = () => {
       path: "/transactions",
     },
     { id: "budget", label: "Budget", icon: FaChartPie, path: "/budget" },
+    { id: "simulator", label: "Simulator", icon: FaChartLine, path: "/simulator" },
     { id: "goals", label: "Goals", icon: FaBullseye, path: "/goals" },
+    { id: "gamification", label: "Rewards", icon: FaTrophy, path: "/gamification" },
     { id: "wallets", label: "Shared Wallets", icon: FaWallet, path: "/wallets" },
     { id: "reports", label: "Reports", icon: FaChartBar, path: "/reports" },
     { id: "subscriptions", label: "Subscriptions", icon: FaCog, path: "/subscriptions" },
@@ -183,7 +191,7 @@ const Dashboard = () => {
     try {
       console.log('???? Fetching dashboard data...');
 
-      const dashboardRes = await api.get('/api/dashboard/summary');
+      const dashboardRes = await api.get('/dashboard/summary');
       const dashboardData = dashboardRes.data;
 
       console.log("📋 Dashboard API Response:", dashboardData);
@@ -222,20 +230,9 @@ const Dashboard = () => {
             hour12: true,
           }),
         );
-      } else {
-        console.error("❌ Dashboard API failed:", dashboardData.message);
-        setError("Failed to load dashboard data");
       }
     } catch (err) {
-      console.error("❌ Error fetching dashboard data:", err);
-      console.error("❌ Error details:", err.response?.data || err.message);
-
-      if (err.response?.status === 401) {
-        await logout();
-        navigate("/login");
-      } else {
-        setError("Failed to connect to server. Please try again.");
-      }
+      // Interceptor handles the toast
     } finally {
       setRefreshing(false);
     }
@@ -256,6 +253,7 @@ const Dashboard = () => {
 
 
 
+        // Setup initial user
         setUser(authUser);
 
         // Set time greeting
@@ -264,24 +262,29 @@ const Dashboard = () => {
         else if (hour < 17) setTimeOfDay('Afternoon');
         else setTimeOfDay('Evening');
 
-        // Set current date - standardized format
+        // Set current date
         const now = new Date();
         const options = { month: 'long', day: 'numeric', year: 'numeric' };
         setCurrentDate(now.toLocaleDateString('en-US', options));
 
-        await fetchDashboardData();
-
-      } catch (err) {
-        console.error('Dashboard initialization error:', err);
-        setError('Failed to initialize dashboard.');
-        setTimeout(() => navigate('/login'), 2000);
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserData();
-  }, [navigate, authUser, authLoading, fetchDashboardData]);
+  }, [navigate, authUser, authLoading]);
+
+  // Initial fetch and manual refreshes decoupled
+  useEffect(() => {
+    if (!authLoading && authUser) {
+      fetchDashboardData(refreshTrigger > 0);
+    }
+  }, [authLoading, authUser, refreshTrigger]);
+
+  const triggerRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   // ============ HANDLERS ============
   const handleLogout = async () => {
@@ -316,6 +319,10 @@ const Dashboard = () => {
       if (response.data.success) {
         setShowAddExpenseModal(false);
         await fetchDashboardData(true);
+        if (response.data.gamification) {
+          handleGamificationReward(response.data.gamification);
+          if (reloadUser) await reloadUser();
+        }
         toast.success('Expenses added successfully.', {
           style: {
             background: "#16a34a",
@@ -344,6 +351,10 @@ const Dashboard = () => {
       if (response.data.success) {
         setShowAddIncomeModal(false);
         await fetchDashboardData(true);
+        if (response.data.gamification) {
+          handleGamificationReward(response.data.gamification);
+          if (reloadUser) await reloadUser();
+        }
         toast.success('Income Added Successfully.', {
           style: {
             background: "#16a34a",
@@ -359,26 +370,6 @@ const Dashboard = () => {
       console.error("❌ Failed to add income:", err);
       alert("Failed to add income. Please try again.");
     }
-  };
-
-  const handleSetBudget = async () => {
-    setShowSetBudgetModal(false);
-    await fetchDashboardData();
-  };
-
-  const handleCreateSavingsGoal = async () => {
-    setShowSavingsGoalModal(false);
-    await fetchDashboardData();
-    toast.success("Goals Created.", {
-      style: {
-        background: "#16a34a",
-        color: "#ffffff",
-      },
-      iconTheme: {
-        primary: "#bbf7d0",
-        secondary: "#166534",
-      },
-    });
   };
 
   const handleAIInsights = () => {
@@ -441,6 +432,90 @@ const Dashboard = () => {
         borderColor: "#ffffff",
       },
     ],
+  };
+
+  // Cumulative Projection Chart
+  const todayDate = new Date();
+  const currentDayNum = todayDate.getDate();
+  const daysInMonthNum = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
+
+  // Create an array of days from 1 to daysInMonth
+  const monthLabels = Array.from({ length: daysInMonthNum }, (_, i) => i + 1);
+
+  // Calculate daily pace
+  const dailyPaceValue = stats.spentThisMonth / Math.max(currentDayNum, 1);
+
+  // Actual spending up to today
+  const actualData = monthLabels.map(day => {
+    if (day <= currentDayNum) {
+      return dailyPaceValue * day; // simplified approximation for the chart
+    }
+    return null; // hide tail
+  });
+
+  // Projected spending dotted line from today to end of month
+  const projectedData = monthLabels.map(day => {
+    if (day >= currentDayNum) {
+      return dailyPaceValue * day;
+    }
+    return null; // hide prefix
+  });
+
+  const projectionChartData = {
+    labels: monthLabels,
+    datasets: [
+      {
+        label: "Actual Spent",
+        data: actualData,
+        borderColor: "#3b82f6",
+        backgroundColor: "rgba(59, 130, 246, 0.1)",
+        fill: true,
+        tension: 0.2,
+        borderWidth: 3,
+      },
+      {
+        label: "Projected Trend",
+        data: projectedData,
+        borderColor: "#94a3b8",
+        borderDash: [5, 5], // Dotted line
+        fill: false,
+        tension: 0.2,
+        borderWidth: 2,
+      }
+    ]
+  };
+
+  if (stats.monthlyBudget > 0) {
+    projectionChartData.datasets.push({
+      label: "Budget Limit",
+      data: monthLabels.map(() => stats.monthlyBudget),
+      borderColor: "#ef4444",
+      borderWidth: 1,
+      fill: false,
+      pointRadius: 0,
+      borderDash: [2, 2]
+    });
+  }
+
+  const projectionOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: "top", labels: { usePointStyle: true } },
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            const currency = user?.currency || 'USD';
+            const locale = currency === 'INR' ? 'en-IN' : 'en-US';
+            return context.dataset.label + ': ' + new Intl.NumberFormat(locale, { style: 'currency', currency }).format(context.raw);
+          }
+        }
+      }
+    },
+    scales: {
+      y: { beginAtZero: true, grid: { color: "rgba(226, 232, 240, 0.5)" } },
+      x: { title: { display: true, text: 'Day of Month' }, grid: { display: false } }
+    }
   };
 
   const chartOptions = {
@@ -507,25 +582,11 @@ const Dashboard = () => {
     });
   };
 
+  const currentLevelInfo = calculateLevel(user?.totalXP || 0);
+
   // ============ RENDERING ============
   if (loading) {
     return <DashboardSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <div className="dashboard-error">
-        <FaExclamationTriangle size={48} />
-        <h2>Something went wrong</h2>
-        <p>{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="btn-primary"
-        >
-          Try Again
-        </button>
-      </div>
-    );
   }
 
   return (
@@ -592,8 +653,18 @@ const Dashboard = () => {
           </ul>
         </nav>
 
-        {/* Right: User Profile */}
+        {/* Right: User Profile & Gamification */}
         <div className="nav-right" ref={userMenuRef}>
+          <div className="gamification-stats" style={{ display: 'flex', alignItems: 'center', gap: '15px', marginRight: '15px', color: 'var(--text-secondary)' }}>
+            <div className="gamification-streak" title="Transaction Streak" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <FaFire color="#f97316" />
+              <span style={{ fontWeight: 600 }}>{user?.currentStreak || 0}</span>
+            </div>
+            <div className="gamification-level" title={`Level ${currentLevelInfo.level}: ${currentLevelInfo.title}`} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <FaStar color="#eab308" />
+              <span style={{ fontWeight: 600 }}>Lvl {currentLevelInfo.level}</span>
+            </div>
+          </div>
           {/*
           <button
             className="theme-toggle"
@@ -926,6 +997,16 @@ const Dashboard = () => {
         <div className="charts-section">
           <div className="chart-container">
             <div className="chart-header">
+              <h3>Monthly Pacing & Projection</h3>
+              <span className="chart-subtitle">Where you'll end up this month</span>
+            </div>
+            <div className="chart-wrapper">
+              <Line data={projectionChartData} options={projectionOptions} />
+            </div>
+          </div>
+
+          <div className="chart-container">
+            <div className="chart-header">
               <h3>Weekly Expenses</h3>
               <span className="chart-subtitle">Last 7 days</span>
             </div>
@@ -1104,25 +1185,25 @@ const Dashboard = () => {
       <AddExpense
         isOpen={showAddExpenseModal}
         onClose={() => setShowAddExpenseModal(false)}
-        onAddExpense={handleAddExpense}
+        onSuccess={() => handleSuccess('expense')}
       />
 
       <AddIncome
         isOpen={showAddIncomeModal}
         onClose={() => setShowAddIncomeModal(false)}
-        onAddIncome={handleAddIncome}
+        onSuccess={() => handleSuccess('income')}
       />
 
       <SetBudget
         isOpen={showSetBudgetModal}
         onClose={() => setShowSetBudgetModal(false)}
-        onSetBudget={handleSetBudget}
+        onSetBudget={() => handleSuccess('budget')}
       />
 
       <SavingGoal
         isOpen={showSavingsGoalModal}
         onClose={() => setShowSavingsGoalModal(false)}
-        onGoalCreated={handleCreateSavingsGoal}
+        onGoalCreated={() => handleSuccess('goal')}
       />
 
       {showVaultUnlock && (
