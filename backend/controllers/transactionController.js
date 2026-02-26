@@ -24,6 +24,9 @@ const transactionSchema = z.object({
   ),
   isRecurring: z.boolean().optional().default(false),
   recurringInterval: z.enum(['daily', 'weekly', 'monthly']).nullable().optional(),
+  walletId: z.string().nullable().optional(),
+  isEncrypted: z.boolean().optional().default(false),
+  encryptedData: z.string().optional()
   isEncrypted: z.boolean().optional().default(false),
   encryptedData: z.string().nullable().optional()
 });
@@ -60,6 +63,7 @@ const addTransaction = catchAsync(async (req, res, next) => {
     date,
     isRecurring,
     recurringInterval,
+    walletId,
     isEncrypted,
     encryptedData
   } = parsed.data;
@@ -107,19 +111,33 @@ const addTransaction = catchAsync(async (req, res, next) => {
       isRecurring,
       recurringInterval,
       nextExecutionDate,
+      walletId: walletId || null,
+      paidBy: walletId ? userId : null,
       isEncrypted,
       encryptedData
     });
 
     await transaction.save({ session });
 
-    // Update wallet balance
+    // Update balance
     const balanceChange = type === 'income' ? amount : -amount;
-    await User.findByIdAndUpdate(
-      userId,
-      { $inc: { walletBalance: balanceChange } },
-      { session }
-    );
+    
+    if (walletId) {
+      // Update shared wallet balance
+      const Wallet = require('../models/Wallet');
+      await Wallet.findByIdAndUpdate(
+        walletId,
+        { $inc: { balance: balanceChange } },
+        { session }
+      );
+    } else {
+      // Update personal balance
+      await User.findByIdAndUpdate(
+        userId,
+        { $inc: { walletBalance: balanceChange } },
+        { session }
+      );
+    }
 
     // Log Activity
     await logTransactionActivity({
@@ -148,16 +166,26 @@ const getAllTransactions = catchAsync(async (req, res) => {
     type,
     startDate,
     endDate,
-    sort = 'newest'
+    sort = 'newest',
+    walletId
   } = req.query;
 
-  const query = { userId };
+  const query = {};
+  if (walletId) {
+    query.walletId = walletId;
+  } else {
+    query.userId = userId;
+    query.walletId = null; // Only personal transactions
+  }
 
   // Process recurring transactions
+  // For simplicity, recurring transactions are currently bound to personal userId.
+  // If we want recurring inside shared wallets, we'll need to expand this query.
   const recurringTransactions = await Transaction.find({
     userId,
     isRecurring: true,
-    nextExecutionDate: { $lte: new Date() }
+    nextExecutionDate: { $lte: new Date() },
+    walletId: null // Process only personal recurring transactions for now
   });
 
   for (const rt of recurringTransactions) {
@@ -293,9 +321,16 @@ const deleteTransaction = catchAsync(async (req, res) => {
 
   const balanceChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
 
-  await User.findByIdAndUpdate(userId, {
-    $inc: { walletBalance: balanceChange }
-  });
+  if (transaction.walletId) {
+    const Wallet = require('../models/Wallet');
+    await Wallet.findByIdAndUpdate(transaction.walletId, {
+      $inc: { balance: balanceChange }
+    });
+  } else {
+    await User.findByIdAndUpdate(userId, {
+      $inc: { walletBalance: balanceChange }
+    });
+  }
 
   await logTransactionActivity({
     userId,
