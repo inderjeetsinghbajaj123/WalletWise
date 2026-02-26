@@ -495,7 +495,11 @@ const skipNextOccurrence = async (req, res) => {
         } else if (transaction.recurringInterval === "weekly") {
             updatedNextDate.setDate(updatedNextDate.getDate() + 7);
         } else if (transaction.recurringInterval === "monthly") {
-            updatedNextDate.setMonth(updatedNextDate.getMonth() + 1);
+            const currentMonth = updatedNextDate.getMonth();
+            updatedNextDate.setMonth(currentMonth + 1);
+            if (updatedNextDate.getMonth() !== ((currentMonth + 1) % 12)) {
+                updatedNextDate.setDate(0);
+            }
         }
 
         transaction.nextExecutionDate = updatedNextDate;
