@@ -15,8 +15,15 @@ const analyticsRoutes = require("./routes/analyticsRoutes");
 const asyncHandler = require("./middleware/asyncHandler");
 dotenv.config();
 
+// ==================== DEPENDENCY INJECTION ====================
+const { createContainer } = require('./containerBootstrap');
+const container = createContainer();
+
 // Initialize Express app
 const app = express();
+
+// Expose DI container on the app for route/controller access
+app.locals.container = container;
 
 // Enable trust proxy for correct rate limiting behind load balancers (Vercel, Heroku, AWS ELB)
 app.set('trust proxy', 1);
