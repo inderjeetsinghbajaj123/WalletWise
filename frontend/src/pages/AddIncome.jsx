@@ -7,7 +7,9 @@ import VaultUnlock from '../components/Vault/VaultUnlock';
 import { Lock, Unlock } from 'lucide-react';
 import './AddExpense.css'; // Reusing the clean CSS
 
-const AddIncome = ({ isOpen, onClose, onAddIncome }) => {
+import api from '../api/client';
+
+const AddIncome = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     amount: '',
     category: 'pocket_money',
@@ -99,7 +101,7 @@ const AddIncome = ({ isOpen, onClose, onAddIncome }) => {
       });
       setIsEncrypted(false);
     } catch (err) {
-      console.error('Error adding income:', err);
+      // Interceptor handles the toast
     } finally {
       setLoading(false);
     }

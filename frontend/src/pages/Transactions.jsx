@@ -61,7 +61,6 @@ const Transactions = () => {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   // Vault Mechanics
   const { isVaultEnabled, isUnlocked, cryptoKey } = useVault();
@@ -140,20 +139,9 @@ const Transactions = () => {
         if (response.data.pagination) {
           setTotalPages(response.data.pagination.pages);
         }
-      } else {
-        setError('Failed to load transactions.');
       }
     } catch (err) {
-      if (err.name === 'CanceledError' || err.name === 'AbortError') {
-        console.log('Request aborted');
-        return; // Early return to avoid updating state
-      }
-      console.error('Transactions fetch error:', err);
-      if (err.response?.status === 401) {
-        navigate('/login');
-      } else {
-        setError('Could not connect to server.');
-      }
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return;
       setTransactions([]);
     } finally {
       setLoading(false);
@@ -265,19 +253,6 @@ const Transactions = () => {
     return (
       <div className="transactions-page">
         <div className="page-loading">Loading transactions...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="transactions-page">
-        <div className="page-error">
-          <p>{error}</p>
-          <button className="primary-button" onClick={() => window.location.reload()}>
-            Try Again
-          </button>
-        </div>
       </div>
     );
   }

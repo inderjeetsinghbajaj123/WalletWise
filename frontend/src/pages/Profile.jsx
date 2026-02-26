@@ -141,12 +141,9 @@ const Profile = () => {
                 setStatus({ type: 'success', message: 'Profile updated successfully.' });
                 setFile(null);
                 setHasChanges(false);
-            } else {
-                setStatus({ type: 'error', message: data?.message || 'Unable to save changes.' });
             }
         } catch (error) {
-            const message = error?.response?.data?.message || 'Unable to save changes.';
-            setStatus({ type: 'error', message });
+            // Interceptor handles the toast
         } finally {
             setIsSaving(false);
         }

@@ -73,12 +73,12 @@ const Dashboard = () => {
     budgetUsedPercentage: 0,
     expenseTrend: 0,
   });
-  const [error, setError] = useState(null);
   const [timeOfDay, setTimeOfDay] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [lastUpdated, setLastUpdated] = useState(null);
   // const { isDark, toggleTheme } = useTheme(); // CACHE BUST TEMPORARY COMMENT
 
@@ -229,20 +229,9 @@ const Dashboard = () => {
             hour12: true,
           }),
         );
-      } else {
-        console.error("❌ Dashboard API failed:", dashboardData.message);
-        setError("Failed to load dashboard data");
       }
     } catch (err) {
-      console.error("❌ Error fetching dashboard data:", err);
-      console.error("❌ Error details:", err.response?.data || err.message);
-
-      if (err.response?.status === 401) {
-        await logout();
-        navigate("/login");
-      } else {
-        setError("Failed to connect to server. Please try again.");
-      }
+      // Interceptor handles the toast
     } finally {
       setRefreshing(false);
     }
@@ -263,6 +252,7 @@ const Dashboard = () => {
 
 
 
+        // Setup initial user
         setUser(authUser);
 
         // Set time greeting
@@ -271,24 +261,29 @@ const Dashboard = () => {
         else if (hour < 17) setTimeOfDay('Afternoon');
         else setTimeOfDay('Evening');
 
-        // Set current date - standardized format
+        // Set current date
         const now = new Date();
         const options = { month: 'long', day: 'numeric', year: 'numeric' };
         setCurrentDate(now.toLocaleDateString('en-US', options));
 
-        await fetchDashboardData();
-
-      } catch (err) {
-        console.error('Dashboard initialization error:', err);
-        setError('Failed to initialize dashboard.');
-        setTimeout(() => navigate('/login'), 2000);
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserData();
-  }, [navigate, authUser, authLoading, fetchDashboardData]);
+  }, [navigate, authUser, authLoading]);
+
+  // Initial fetch and manual refreshes decoupled
+  useEffect(() => {
+    if (!authLoading && authUser) {
+      fetchDashboardData(refreshTrigger > 0);
+    }
+  }, [authLoading, authUser, refreshTrigger]);
+
+  const triggerRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   // ============ HANDLERS ============
   const handleLogout = async () => {
@@ -374,26 +369,6 @@ const Dashboard = () => {
       console.error("❌ Failed to add income:", err);
       alert("Failed to add income. Please try again.");
     }
-  };
-
-  const handleSetBudget = async () => {
-    setShowSetBudgetModal(false);
-    await fetchDashboardData();
-  };
-
-  const handleCreateSavingsGoal = async () => {
-    setShowSavingsGoalModal(false);
-    await fetchDashboardData();
-    toast.success("Goals Created.", {
-      style: {
-        background: "#16a34a",
-        color: "#ffffff",
-      },
-      iconTheme: {
-        primary: "#bbf7d0",
-        secondary: "#166534",
-      },
-    });
   };
 
   const handleAIInsights = () => {
@@ -611,22 +586,6 @@ const Dashboard = () => {
   // ============ RENDERING ============
   if (loading) {
     return <DashboardSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <div className="dashboard-error">
-        <FaExclamationTriangle size={48} />
-        <h2>Something went wrong</h2>
-        <p>{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="btn-primary"
-        >
-          Try Again
-        </button>
-      </div>
-    );
   }
 
   return (
@@ -1225,25 +1184,25 @@ const Dashboard = () => {
       <AddExpense
         isOpen={showAddExpenseModal}
         onClose={() => setShowAddExpenseModal(false)}
-        onAddExpense={handleAddExpense}
+        onSuccess={() => handleSuccess('expense')}
       />
 
       <AddIncome
         isOpen={showAddIncomeModal}
         onClose={() => setShowAddIncomeModal(false)}
-        onAddIncome={handleAddIncome}
+        onSuccess={() => handleSuccess('income')}
       />
 
       <SetBudget
         isOpen={showSetBudgetModal}
         onClose={() => setShowSetBudgetModal(false)}
-        onSetBudget={handleSetBudget}
+        onSetBudget={() => handleSuccess('budget')}
       />
 
       <SavingGoal
         isOpen={showSavingsGoalModal}
         onClose={() => setShowSavingsGoalModal(false)}
-        onGoalCreated={handleCreateSavingsGoal}
+        onGoalCreated={() => handleSuccess('goal')}
       />
 
       {showVaultUnlock && (
