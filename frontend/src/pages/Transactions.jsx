@@ -5,6 +5,7 @@ import api from '../api/client';
 import { FaFilter, FaSearch } from 'react-icons/fa';
 import Pagination from '../components/Pagination';
 import EmptyState from '../components/EmptyState';
+import Spinner from '../components/Spinner';
 import { ShoppingBag, SearchX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useVault } from '../context/VaultContext';
@@ -252,7 +253,7 @@ const Transactions = () => {
   if (loading && transactions.length === 0) {
     return (
       <div className="transactions-page">
-        <div className="page-loading">Loading transactions...</div>
+        <Spinner size={50} text="Loading transactions..." />
       </div>
     );
   }

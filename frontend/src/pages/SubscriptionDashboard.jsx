@@ -12,6 +12,7 @@ import {
     LucideSearch
 } from 'lucide-react';
 import api from '../api/client';
+import Spinner from '../components/Spinner';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import './SubscriptionDashboard.css';
@@ -140,7 +141,7 @@ const SubscriptionDashboard = () => {
             .slice(0, 5); // Next 5 bills
     }, [subscriptions]);
 
-    if (loading && !subscriptions.length) return <div className="sub-dashboard-loading">Loading...</div>;
+    if (loading && !subscriptions.length) return <Spinner size={50} text="Loading subscriptions..." />;
 
     return (
         <div className="sub-page">

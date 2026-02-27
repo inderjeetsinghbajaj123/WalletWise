@@ -17,6 +17,7 @@ import {
   LucideTrendingUp
 } from 'lucide-react';
 import api from '../api/client';
+import Spinner from '../components/Spinner';
 import { useAuth } from '../context/AuthContext';
 import './BehaviourDashboard.css';
 
@@ -298,7 +299,7 @@ const BehaviourDashboard = () => {
     return (
       <div className="ai-page">
         <div className="ai-content">
-          <div className="ai-card">Loading AI analysis…</div>
+          <Spinner size={60} text="Loading AI analysis…" />
         </div>
       </div>
     );

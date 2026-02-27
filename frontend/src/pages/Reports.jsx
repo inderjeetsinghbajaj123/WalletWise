@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { FaDownload } from 'react-icons/fa';
+import Spinner from '../components/Spinner';
 import { useAuth } from '../context/AuthContext';
 
 import {

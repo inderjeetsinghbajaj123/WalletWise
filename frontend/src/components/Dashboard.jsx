@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import Spinner from './Spinner';
 import { useTheme } from '../context/ThemeContext';
 import { DashboardSkeleton } from './SkeletonLoader';
 import './dashboard.css';

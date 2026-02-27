@@ -6,8 +6,7 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen, navigate }) => {
   const { isDark, toggleTheme } = useTheme();
   return (
     <header className="fixed top-4 left-0 w-full z-50 flex justify-center px-4 ">
-      <div className="w-full max-w-6xl px-6 py-2.5 flex items-center justify-between rounded-full backdrop-blur-md bg-white/80 dark:bg-slate-900/70 border border-zinc-200 dark:border-slate-700 shadow-lg">
-        {/* Logo */}
+      <div className="w-full max-w-7xl px-6 py-2.5 flex items-center justify-between rounded-full backdrop-blur-md bg-white/80 dark:bg-slate-900/70 border border-zinc-200 dark:border-slate-700 shadow-lg">
         <a
           href="#top"
           className="flex items-center gap-2 font-bold text-xl text-zinc-900 dark:text-slate-100 focus:outline-none"
@@ -17,7 +16,7 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen, navigate }) => {
         </a>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="hidden md:flex items-center gap-7">
           <a
             href="#home"
             className="text-zinc-600 dark:text-slate-300 hover:text-black dark:hover:text-white transition relative pb-1 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-black dark:after:bg-white after:transition-all after:duration-300 hover:after:w-full focus:outline-none"

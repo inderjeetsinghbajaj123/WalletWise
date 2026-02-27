@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import AppNavbar from '../components/AppNavbar';
+import Spinner from '../components/Spinner';
 import { useAuth } from '../context/AuthContext';
 import './Budget.css';
 
@@ -262,11 +263,7 @@ const Budget = () => {
       <>
         <AppNavbar />
         <div className="budget-page">
-          <div className="overview-grid">
-            <div className="overview-card">
-              <h3>Loading budget...</h3>
-            </div>
-          </div>
+          <Spinner size={50} text="Loading budget..." />
         </div>
       </>
     );
